@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RAGInspector — Query grounding (demo seed)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #0b0d12; color: #e8eaed; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px; }
+    h1 { font-size: 1.25rem; margin: 0 0 6px; }
+    .meta { color: #9aa3b2; font-size: 0.9rem; margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { background: #12161f; border: 1px solid #243044; border-radius: 12px; padding: 16px; }
+    .panel h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: #8b95a8; margin: 0 0 12px; }
+    .sentence { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid transparent; }
+    .sentence.grounded { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.35); }
+    .sentence.ungrounded { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35); }
+    .chunk { padding: 12px; border-radius: 8px; margin-bottom: 8px; background: #0f131a; border: 1px solid #2a3548; }
+    .chunk.active { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+    .tag { display: inline-block; font-size: 0.7rem; padding: 2px 6px; border-radius: 999px; margin-bottom: 6px; }
+    .tag.ok { background: #14532d; color: #86efac; }
+    .tag.bad { background: #7f1d1d; color: #fecaca; }
+    .note { margin-top: 18px; font-size: 0.8rem; color: #7a8494; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Query detail — sentence grounding</h1>
+    <p class="meta">
+      Query: <strong>What is the refund window for annual plans?</strong><br />
+      Source: demo seed fixture <code>key=grounded</code> in <code>backend/app/services/demo_seed.py</code> (not synthetic marketing copy).
+    </p>
+    <div class="grid">
+      <div class="panel">
+        <h2>Answer sentences</h2>
+        <div class="sentence grounded">
+          <span class="tag ok">grounded · doc-billing-01</span><br />
+          Annual plans can be refunded within 14 days of purchase.
+        </div>
+        <div class="sentence grounded">
+          <span class="tag ok">grounded · doc-billing-01</span><br />
+          After that window, upgrades are prorated only.
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Retrieved chunks</h2>
+        <div class="chunk active">
+          <span class="tag ok">cited · similarity 0.91</span><br />
+          <strong>doc-billing-01</strong><br />
+          Annual subscriptions may be refunded in full within 14 days of the original purchase date. After 14 days, only prorated plan upgrades are available.
+        </div>
+        <div class="chunk">
+          <span class="tag bad">not cited · similarity 0.55</span><br />
+          <strong>doc-billing-02</strong><br />
+          Monthly plans renew automatically unless cancelled.
+        </div>
+      </div>
+    </div>
+    <p class="note">
+      Live UI: after <code>make seed</code>, open Queries → this trace → hover sentences in
+      <code>grounding-attribution.tsx</code>. Capture a live PNG with
+      <code>scripts/capture_grounding_screenshot.*</code> when the stack is running.
+    </p>
+  </div>
+</body>
+</html>

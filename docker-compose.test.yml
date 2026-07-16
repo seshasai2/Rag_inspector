@@ -1,0 +1,101 @@
+# Test / CI-like stack — ephemeral data, no host bind mounts for app code.
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d --build
+#   docker compose -f docker-compose.test.yml run --rm backend alembic upgrade head
+#   docker compose -f docker-compose.test.yml run --rm backend pytest tests/unit/ -q
+#   docker compose -f docker-compose.test.yml down -v
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "5m"
+    max-file: "2"
+
+services:
+  db:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.db
+    environment:
+      POSTGRES_USER: raginspector
+      POSTGRES_PASSWORD: raginspector_test
+      POSTGRES_DB: raginspector
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raginspector"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass redis_test --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_test", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *default-logging
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      ENVIRONMENT: test
+      TESTING: "1"
+      DATABASE_URL: postgresql+asyncpg://raginspector:raginspector_test@db:5432/raginspector
+      DATABASE_SYNC_URL: postgresql://raginspector:raginspector_test@db:5432/raginspector
+      REDIS_URL: redis://:redis_test@redis:6379/0
+      SECRET_KEY: test-secret-key-min-32-characters-long!!
+      FRONTEND_URL: http://localhost:3000
+      ALLOWED_HOSTS: localhost,backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/live >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    logging: *default-logging
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 -Q analysis,celery
+    environment:
+      ENVIRONMENT: test
+      TESTING: "1"
+      DATABASE_URL: postgresql+asyncpg://raginspector:raginspector_test@db:5432/raginspector
+      DATABASE_SYNC_URL: postgresql://raginspector:raginspector_test@db:5432/raginspector
+      REDIS_URL: redis://:redis_test@redis:6379/0
+      SECRET_KEY: test-secret-key-min-32-characters-long!!
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    logging: *default-logging

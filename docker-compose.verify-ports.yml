@@ -1,0 +1,36 @@
+# Local verification override — use when default host ports are already bound.
+# Compose merges `ports` lists by default; `!override` replaces them.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.verify-ports.yml up -d --build
+services:
+  db:
+    ports: !override
+      - "15432:5432"
+  redis:
+    ports: !override
+      - "16379:6379"
+  backend:
+    ports: !override
+      - "18000:8000"
+    environment:
+      FRONTEND_URL: http://127.0.0.1:13000
+      ALLOWED_HOSTS: localhost,127.0.0.1
+  frontend:
+    ports: !override
+      - "13000:3000"
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://127.0.0.1:18000
+    environment:
+      - NEXT_PUBLIC_API_URL=http://127.0.0.1:18000
+  celery_worker:
+    environment:
+      FRONTEND_URL: http://127.0.0.1:13000
+  celery_beat:
+    environment:
+      FRONTEND_URL: http://127.0.0.1:13000
+  nginx:
+    ports: !override
+      - "18080:80"

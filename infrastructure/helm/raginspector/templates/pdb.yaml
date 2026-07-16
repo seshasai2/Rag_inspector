@@ -1,0 +1,47 @@
+{{- if and .Values.backend.enabled .Values.backend.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "raginspector.fullname" . }}-backend
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.backend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "raginspector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+{{- end }}
+---
+{{- if and .Values.frontend.enabled .Values.frontend.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "raginspector.fullname" . }}-frontend
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.frontend.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "raginspector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+{{- end }}
+---
+{{- if and .Values.worker.enabled .Values.worker.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "raginspector.fullname" . }}-worker
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.worker.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "raginspector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+{{- end }}

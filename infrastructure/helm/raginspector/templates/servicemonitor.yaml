@@ -1,0 +1,51 @@
+{{- if and .Values.observability.serviceMonitor.enabled .Values.backend.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "raginspector.fullname" . }}-backend
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "raginspector.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  endpoints:
+    - port: http
+      path: {{ .Values.observability.serviceMonitor.path }}
+      interval: {{ .Values.observability.serviceMonitor.interval }}
+      {{- if .Values.observability.serviceMonitor.bearerTokenSecret.enabled }}
+      bearerTokenSecret:
+        name: {{ include "raginspector.secretName" . }}
+        key: {{ .Values.observability.serviceMonitor.bearerTokenSecret.key }}
+      {{- end }}
+{{- end }}
+---
+{{- if .Values.observability.prometheusRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "raginspector.fullname" . }}
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: raginspector.rules
+      rules:
+        - alert: RAGInspectorAPINotReady
+          expr: up{job="{{ include "raginspector.fullname" . }}-backend"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: RAGInspector API scrape target down
+        - alert: RAGInspectorHighAnalysisBacklog
+          expr: raginspector_analysis_backlog > 100
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Analysis job backlog is elevated
+{{- end }}

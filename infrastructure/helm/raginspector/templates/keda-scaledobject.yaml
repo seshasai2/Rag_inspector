@@ -1,0 +1,23 @@
+{{- if and .Values.keda.enabled .Values.worker.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "raginspector.fullname" . }}-worker
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "raginspector.fullname" . }}-worker
+  minReplicaCount: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.worker.autoscaling.maxReplicas }}
+  cooldownPeriod: 300
+  pollingInterval: 30
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.keda.worker.prometheusAddress | quote }}
+        metricName: {{ .Values.keda.worker.metricName | quote }}
+        threshold: {{ .Values.keda.worker.threshold | quote }}
+        query: sum(raginspector_celery_queue_depth{queue="analysis"}) or vector(0)
+{{- end }}

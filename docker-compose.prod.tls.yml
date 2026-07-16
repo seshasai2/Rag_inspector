@@ -1,0 +1,31 @@
+# TLS overlay for production Compose (Phase 8.2).
+# Usage:
+#   # Place fullchain.pem + privkey.pem in ./certs (see docs/TLS.md)
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml \
+#     --env-file .env.production up -d --build
+#
+# Does not remount application source — only certificate files.
+
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.tls
+    image: raginspector-nginx:prod-tls
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ${TLS_CERTS_DIR:-./certs}:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+
+volumes:
+  certbot_www:

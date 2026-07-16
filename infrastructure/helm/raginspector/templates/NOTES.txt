@@ -1,0 +1,28 @@
+1. Chart: {{ .Chart.Name }} {{ .Chart.Version }} (app {{ .Chart.AppVersion }})
+2. Namespace: {{ include "raginspector.namespace" . }}
+
+Prerequisites
+-------------
+{{- if not .Values.secret.create }}
+* Create Secret `{{ include "raginspector.secretName" . }}` with at least:
+  SECRET_KEY, DATABASE_URL, DATABASE_SYNC_URL, REDIS_URL
+  See docs/SECRETS.md
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+* In-cluster Postgres is ENABLED — development only.
+{{- else }}
+* Using external Postgres (managed).
+{{- end }}
+
+Verify
+------
+  kubectl -n {{ include "raginspector.namespace" . }} get pods
+  kubectl -n {{ include "raginspector.namespace" . }} rollout status deploy/{{ include "raginspector.fullname" . }}-backend
+  kubectl -n {{ include "raginspector.namespace" . }} port-forward svc/{{ include "raginspector.fullname" . }}-backend 8000:8000
+  curl -fsS http://127.0.0.1:8000/api/v1/ops/ready
+
+{{- if .Values.ingress.enabled }}
+Ingress hosts: {{ range .Values.ingress.hosts }}{{ .host }} {{ end }}
+{{- end }}
+
+Docs: docs/HELM.md | docs/KUBERNETES.md | docs/RUNBOOKS.md

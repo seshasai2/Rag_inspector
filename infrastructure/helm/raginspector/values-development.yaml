@@ -1,0 +1,93 @@
+# Development — in-cluster Postgres/Redis, small resources, create secret from values.
+# Usage:
+#   helm upgrade --install raginspector ./infrastructure/helm/raginspector \
+#     -f infrastructure/helm/raginspector/values-development.yaml \
+#     --set secret.stringData.SECRET_KEY=$(openssl rand -hex 32) \
+#     --set postgresql.auth.password=devpass \
+#     --set redis.auth.password=devredis
+
+namespace:
+  create: true
+  name: raginspector-dev
+
+config:
+  ENVIRONMENT: development
+  REQUIRE_EMAIL_VERIFICATION: "false"
+  FRONTEND_URL: "http://localhost:3000"
+  ALLOWED_HOSTS: "localhost,raginspector-backend"
+  NEXT_PUBLIC_API_URL: "http://localhost:8000"
+
+secret:
+  create: true
+  name: raginspector-secrets
+  stringData:
+    SECRET_KEY: "change-me-dev-secret-key-min-32-chars!!"
+
+postgresql:
+  enabled: true
+  auth:
+    password: "dev-postgres-change-me"
+  persistence:
+    enabled: true
+    size: 5Gi
+
+redis:
+  enabled: true
+  auth:
+    password: "dev-redis-change-me"
+  persistence:
+    enabled: false
+
+backend:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+frontend:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+worker:
+  replicaCount: 1
+  concurrency: 1
+  autoscaling:
+    enabled: false
+  persistence:
+    modelCache:
+      enabled: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+beat:
+  enabled: true
+
+ingress:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+observability:
+  stack:
+    enabled: true
+  serviceMonitor:
+    enabled: false
+
+migration:
+  enabled: true
+
+deploymentValidation:
+  enabled: true

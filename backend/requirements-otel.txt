@@ -1,0 +1,12 @@
+# Optional OpenTelemetry extras (not installed by default)
+
+# Install for tracing to an OTLP collector when OTEL_EXPORTER_OTLP_ENDPOINT is set:
+#   pip install -r requirements-otel.txt
+#
+# Core API stays dependency-light; app.core.otel fails open without these packages.
+
+opentelemetry-api>=1.24.0
+opentelemetry-sdk>=1.24.0
+opentelemetry-exporter-otlp-proto-http>=1.24.0
+opentelemetry-instrumentation-fastapi>=0.45b0
+opentelemetry-instrumentation-httpx>=0.45b0

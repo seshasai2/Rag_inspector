@@ -1,0 +1,40 @@
+{{- if .Values.deploymentValidation.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "raginspector.fullname" . }}-validate-{{ .Release.Revision }}
+  namespace: {{ include "raginspector.namespace" . }}
+  labels:
+    {{- include "raginspector.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        {{- include "raginspector.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: validate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: validate
+          image: curlimages/curl:8.10.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              API="http://{{ include "raginspector.fullname" . }}-backend:{{ .Values.backend.service.port }}"
+              UI="http://{{ include "raginspector.fullname" . }}-frontend:{{ .Values.frontend.service.port }}"
+              echo "Checking liveness..."
+              curl -fsS "$API/live" >/dev/null
+              echo "Checking readiness (DB+Redis)..."
+              curl -fsS "$API/api/v1/ops/ready" >/dev/null
+              echo "Checking frontend..."
+              curl -fsS "$UI/" >/dev/null
+              echo "Release validation OK"
+{{- end }}

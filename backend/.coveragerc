@@ -1,0 +1,32 @@
+# Critical module coverage gate (Phase 4.5)
+#
+# Fail CI when coverage of analysis/metrics critical modules falls below 95%.
+# Peripheral services (email, dashboard SQL, RAGAS LLM, audit, celery config)
+# are measured separately and are not part of the hard gate.
+
+[run]
+branch = False
+source =
+    app/services
+    app/workers
+omit =
+    */app/services/__init__.py
+    */app/workers/__init__.py
+    */app/services/email_service.py
+    */app/services/ragas_service.py
+    */app/services/dashboard_metrics.py
+    */app/services/fix_recommendations.py
+    */app/services/audit.py
+    */app/services/bm25_metrics.py
+    */app/services/demo_seed.py
+    */app/workers/celery_app.py
+
+[report]
+precision = 1
+show_missing = True
+skip_covered = False
+fail_under = 95
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError

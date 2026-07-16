@@ -1,0 +1,61 @@
+[project]
+name = "raginspector-backend"
+version = "1.0.0"
+requires-python = ">=3.11"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+extend-exclude = "/(alembic/versions)/"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+src_paths = ["app"]
+known_first_party = ["app"]
+skip = ["alembic/versions"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "alembic"]
+skips = ["B101"]  # assert used in app invariants occasionally
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["app"]
+
+[tool.ruff.lint]
+# Error-focused CI gate. Import sorting (I) / pyupgrade (UP) can be enabled later.
+# E711/E712 conflict with SQLAlchemy column comparisons.
+select = ["E", "F", "B"]
+ignore = [
+  "E501",  # line length
+  "E711",  # SQLAlchemy None comparisons
+  "E712",  # SQLAlchemy boolean comparisons
+  "B008",  # FastAPI Depends() in defaults
+  "B904",  # raise from — gradual
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E402", "F401"]
+"alembic/**" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_configs = true
+pretty = true
+show_error_codes = true
+# Gradual adoption: core packages first (CI gate). Expand later.
+files = [
+  "app/core",
+  "app/services/dashboard_cache.py",
+  "app/services/worker_backlog.py",
+  "app/services/metric_trends.py",
+  "app/services/hallucination_cost.py",
+  "app/services/analysis_queue.py",
+]
+follow_imports = "silent"
+check_untyped_defs = true
+disallow_untyped_defs = false
+no_implicit_optional = true

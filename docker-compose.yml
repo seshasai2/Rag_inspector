@@ -1,0 +1,261 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: raginspector_db
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-raginspector}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-raginspector_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-raginspector}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raginspector}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: raginspector_redis
+    restart: unless-stopped
+    logging: *default-logging
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: raginspector_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
+      - DATABASE_SYNC_URL=postgresql://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-supersecretkey_change_in_production_min_32_chars}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      - HF_MODEL=${HF_MODEL:-HuggingFaceH4/zephyr-7b-beta}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET}
+      - RAZORPAY_PLAN_STARTER_MONTHLY=${RAZORPAY_PLAN_STARTER_MONTHLY:-}
+      - RAZORPAY_PLAN_STARTER_ANNUAL=${RAZORPAY_PLAN_STARTER_ANNUAL:-}
+      - RAZORPAY_PLAN_PRO_MONTHLY=${RAZORPAY_PLAN_PRO_MONTHLY:-}
+      - RAZORPAY_PLAN_PRO_ANNUAL=${RAZORPAY_PLAN_PRO_ANNUAL:-}
+      - RAZORPAY_PLAN_ENTERPRISE_MONTHLY=${RAZORPAY_PLAN_ENTERPRISE_MONTHLY:-}
+      - RAZORPAY_PLAN_ENTERPRISE_ANNUAL=${RAZORPAY_PLAN_ENTERPRISE_ANNUAL:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SUPPORT_ADMIN_EMAILS=${SUPPORT_ADMIN_EMAILS:-}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM:-noreply@raginspector.com}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    ports:
+      - "8000:8000"
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/ops/ready >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - model_cache:/app/.cache/huggingface
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: raginspector_worker
+    restart: unless-stopped
+    # Consume analysis + default celery queues; keep concurrency low (ML RAM). See docs/WORKER.md
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 -Q analysis,celery
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
+      - DATABASE_SYNC_URL=postgresql://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-supersecretkey_change_in_production_min_32_chars}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      - HF_MODEL=${HF_MODEL:-HuggingFaceH4/zephyr-7b-beta}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM:-noreply@raginspector.com}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    healthcheck:
+      # Worker answers Celery control ping (allows ML warm-up via start_period)
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A app.workers.celery_app inspect ping -t 5 2>/dev/null | grep -qi pong",
+        ]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - model_cache:/app/.cache/huggingface
+    logging: *default-logging
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: raginspector_beat
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
+      - DATABASE_SYNC_URL=postgresql://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-supersecretkey_change_in_production_min_32_chars}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      - HF_MODEL=${HF_MODEL:-HuggingFaceH4/zephyr-7b-beta}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM:-noreply@raginspector.com}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Override image HEALTHCHECK (curl :8000) — beat has no HTTP server
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os,redis; r=redis.from_url(os.environ['REDIS_URL']); r.ping()\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+
+  postgres_backup:
+    image: postgres:16-alpine
+    container_name: raginspector_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD:-raginspector_secret}
+      - POSTGRES_USER=${POSTGRES_USER:-raginspector}
+      - POSTGRES_DB=${POSTGRES_DB:-raginspector}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - postgres_backups:/backups
+    command: >
+      sh -c 'while true; do
+        ts=$$(date +%Y%m%d_%H%M%S);
+        pg_dump -h db -U "$$POSTGRES_USER" "$$POSTGRES_DB" | gzip > "/backups/raginspector_$$ts.sql.gz";
+        find /backups -type f -name "*.sql.gz" -mtime +"$$BACKUP_RETENTION_DAYS" -delete;
+        sleep 86400;
+      done'
+    logging: *default-logging
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        - NEXT_PUBLIC_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+    container_name: raginspector_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+    logging: *default-logging
+
+  nginx:
+    image: nginx:alpine
+    container_name: raginspector_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  postgres_backups:
+  redis_data:
+  model_cache:

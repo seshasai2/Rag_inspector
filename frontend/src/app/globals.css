@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design tokens: dark-first product with optional light theme via ThemeProvider.
+  Classes `.dark` / `.light` on <html> drive the palette; :root mirrors dark defaults
+  so SSR/un-classed HTML still renders correctly before the bootstrap script runs.
+*/
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 40% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 40% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 25% 16%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 25% 14%;
+    --muted-foreground: 215 16% 65%;
+    --accent: 217 25% 16%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 25% 18%;
+    --input: 217 25% 18%;
+    --ring: 224 76% 48%;
+    --radius: 0.75rem;
+    --success: 142 70% 45%;
+    --warning: 38 92% 50%;
+
+    /* Accent tones for StatCard / status chips */
+    --accent-blue: 217 91% 60%;
+    --accent-red: 0 72% 55%;
+    --accent-green: 142 70% 45%;
+    --accent-amber: 38 92% 50%;
+    --accent-purple: 270 70% 65%;
+  }
+
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 220 90% 56%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 220.9 39.3% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 90% 56%;
+    --accent-blue: 217 91% 50%;
+    --accent-red: 0 72% 50%;
+    --accent-green: 142 70% 36%;
+    --accent-amber: 38 92% 45%;
+    --accent-purple: 270 70% 50%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground; }
+}
+
+@layer utilities {
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--border)) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+}

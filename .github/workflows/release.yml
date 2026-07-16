@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer without v prefix (e.g. 1.0.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            V="${{ inputs.version }}"
+          else
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          FILE_V=$(tr -d '[:space:]' < VERSION)
+          if [ "$V" != "$FILE_V" ]; then
+            echo "Tag/version $V does not match VERSION file ($FILE_V)"
+            echo "Bump VERSION, package versions, and CHANGELOG before tagging."
+            exit 1
+          fi
+          grep -q "version = \"$V\"" backend/pyproject.toml
+          grep -q "\"version\": \"$V\"" frontend/package.json
+          grep -q "version = \"$V\"" sdk/pyproject.toml
+
+  build-sdk:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-dist-${{ needs.validate-tag.outputs.version }}
+          path: sdk/dist/
+
+  build-images:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build images
+        run: |
+          V="${{ needs.validate-tag.outputs.version }}"
+          docker build -t "raginspector-backend:v${V}" ./backend
+          docker build -t "raginspector-frontend:v${V}" \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 \
+            ./frontend
+          docker build -t "raginspector-nginx:v${V}" ./nginx
+          docker save "raginspector-backend:v${V}" | gzip > "backend-v${V}.tar.gz"
+          docker save "raginspector-frontend:v${V}" | gzip > "frontend-v${V}.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-images-${{ needs.validate-tag.outputs.version }}
+          path: |
+            backend-v*.tar.gz
+            frontend-v*.tar.gz
+
+  github-release:
+    needs: [validate-tag, build-sdk, build-images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+      - name: Generate release notes from CHANGELOG
+        id: notes
+        run: |
+          V="${{ needs.validate-tag.outputs.version }}"
+          python - <<'PY'
+          import pathlib, re, os
+          v = os.environ["V"]
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          # Extract section ## [version]
+          pat = rf"## \[{re.escape(v)}\].*?(?=\n## |\Z)"
+          m = re.search(pat, text, re.S)
+          body = m.group(0).strip() if m else f"Release v{v}"
+          pathlib.Path("release-notes.md").write_text(body + "\n", encoding="utf-8")
+          PY
+        env:
+          V: ${{ needs.validate-tag.outputs.version }}
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate-tag.outputs.version }}
+          name: RAGInspector v${{ needs.validate-tag.outputs.version }}
+          body_file: release-notes.md
+          files: |
+            release-assets/sdk-dist-${{ needs.validate-tag.outputs.version }}/*
+            release-assets/container-images-${{ needs.validate-tag.outputs.version }}/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

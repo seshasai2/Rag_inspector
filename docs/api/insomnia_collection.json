@@ -1,0 +1,379 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-07-14T00:00:00.000Z",
+  "__export_source": "raginspector.manual",
+  "resources": [
+    {
+      "_id": "wrk_raginspector",
+      "_type": "workspace",
+      "name": "RAGInspector",
+      "description": "Insomnia workspace for RAGInspector API — auth, pipelines, ingest, queries, metrics, health."
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_raginspector",
+      "name": "Local",
+      "data": {
+        "baseUrl": "http://localhost:8000",
+        "accessToken": "",
+        "refreshToken": "",
+        "apiKey": "",
+        "pipelineId": "",
+        "traceId": "",
+        "demoEmail": "demo@example.com",
+        "demoPassword": "DemoPass123!"
+      }
+    },
+    {
+      "_id": "fld_health",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Health"
+    },
+    {
+      "_id": "req_live",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Liveness",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/live",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Health",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/health",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_ready",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Ops Ready",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/ops/ready",
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_backlog",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Ops Backlog",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/ops/backlog",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Auth"
+    },
+    {
+      "_id": "req_register",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Register",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/auth/register",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"{{ _.demoEmail }}\",\n  \"password\": \"{{ _.demoPassword }}\",\n  \"name\": \"Demo User\"\n}"
+      }
+    },
+    {
+      "_id": "req_login",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/auth/login",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"{{ _.demoEmail }}\",\n  \"password\": \"{{ _.demoPassword }}\"\n}"
+      }
+    },
+    {
+      "_id": "req_me",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Me",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/auth/me",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_refresh",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Refresh",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/auth/refresh",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"refresh_token\": \"{{ _.refreshToken }}\"\n}"
+      }
+    },
+    {
+      "_id": "req_logout",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Logout",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/auth/logout",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"refresh_token\": \"{{ _.refreshToken }}\"\n}"
+      }
+    },
+    {
+      "_id": "fld_pipelines",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Pipelines"
+    },
+    {
+      "_id": "req_list_pipelines",
+      "_type": "request",
+      "parentId": "fld_pipelines",
+      "name": "List Pipelines",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/pipelines",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_create_pipeline",
+      "_type": "request",
+      "parentId": "fld_pipelines",
+      "name": "Create Pipeline",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/pipelines",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Demo Pipeline\",\n  \"description\": \"Insomnia demo\",\n  \"queries_per_month\": 10000,\n  \"cost_per_wrong_answer_usd\": 5.0\n}"
+      }
+    },
+    {
+      "_id": "req_get_pipeline",
+      "_type": "request",
+      "parentId": "fld_pipelines",
+      "name": "Get Pipeline",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/pipelines/{{ _.pipelineId }}",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_pipeline_stats",
+      "_type": "request",
+      "parentId": "fld_pipelines",
+      "name": "Pipeline Stats",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/pipelines/{{ _.pipelineId }}/stats",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "fld_keys",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Keys"
+    },
+    {
+      "_id": "req_create_key",
+      "_type": "request",
+      "parentId": "fld_keys",
+      "name": "Create API Key",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/keys",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Insomnia SDK Key\"\n}"
+      }
+    },
+    {
+      "_id": "req_list_keys",
+      "_type": "request",
+      "parentId": "fld_keys",
+      "name": "List API Keys",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/keys",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "fld_ingest",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Ingest"
+    },
+    {
+      "_id": "req_ingest",
+      "_type": "request",
+      "parentId": "fld_ingest",
+      "name": "Ingest Trace",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/ingest/trace",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "X-API-Key", "value": "{{ _.apiKey }}" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"pipeline_id\": \"{{ _.pipelineId }}\",\n  \"query\": \"What is the refund policy?\",\n  \"answer\": \"Refunds are available within 30 days of purchase with a receipt.\",\n  \"retrieved_chunks\": [\n    {\n      \"content\": \"Customers may request a full refund within 30 days of purchase when they provide a valid receipt.\",\n      \"similarity_score\": 0.91,\n      \"metadata\": { \"source\": \"policies.md\" }\n    },\n    {\n      \"content\": \"Shipping usually takes 3–5 business days.\",\n      \"similarity_score\": 0.41,\n      \"metadata\": { \"source\": \"shipping.md\" }\n    }\n  ],\n  \"latency_ms\": {\n    \"retrieve\": 45,\n    \"generate\": 320\n  }\n}"
+      }
+    },
+    {
+      "_id": "fld_queries",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Queries"
+    },
+    {
+      "_id": "req_list_queries",
+      "_type": "request",
+      "parentId": "fld_queries",
+      "name": "List Queries",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/queries?page=1&per_page=20",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_get_query",
+      "_type": "request",
+      "parentId": "fld_queries",
+      "name": "Get Query Detail",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/queries/{{ _.traceId }}",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_reanalyze",
+      "_type": "request",
+      "parentId": "fld_queries",
+      "name": "Reanalyze Query",
+      "method": "POST",
+      "url": "{{ _.baseUrl }}/api/v1/queries/{{ _.traceId }}/reanalyze",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "fld_metrics",
+      "_type": "request_group",
+      "parentId": "wrk_raginspector",
+      "name": "Metrics"
+    },
+    {
+      "_id": "req_dashboard",
+      "_type": "request",
+      "parentId": "fld_metrics",
+      "name": "Dashboard Metrics",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/metrics/dashboard",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_timeseries",
+      "_type": "request",
+      "parentId": "fld_metrics",
+      "name": "Timeseries",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/metrics/timeseries?days=7",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_bm25",
+      "_type": "request",
+      "parentId": "fld_metrics",
+      "name": "BM25 Comparison",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/metrics/bm25-comparison",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_failures",
+      "_type": "request",
+      "parentId": "fld_metrics",
+      "name": "Failure Distribution",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/metrics/failure-distribution",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_latency",
+      "_type": "request",
+      "parentId": "fld_metrics",
+      "name": "Latency Breakdown",
+      "method": "GET",
+      "url": "{{ _.baseUrl }}/api/v1/metrics/latency-breakdown",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ _.accessToken }}" }
+      ],
+      "body": {}
+    }
+  ]
+}

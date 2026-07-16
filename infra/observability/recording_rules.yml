@@ -1,0 +1,27 @@
+# Aggregations for multi-replica HTTP RED (process-local counters summed by Prom).
+groups:
+  - name: raginspector_recording
+    interval: 30s
+    rules:
+      - record: job:raginspector_http_requests:rate5m
+        expr: sum by (job, method, status) (rate(raginspector_http_requests_total[5m]))
+
+      - record: job:raginspector_http_error_ratio:rate5m
+        expr: |
+          sum(rate(raginspector_http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(raginspector_http_requests_total[5m])), 0.001)
+
+      - record: job:raginspector_http_request_duration:p99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (rate(raginspector_http_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: job:raginspector_http_request_duration:p50
+        expr: |
+          histogram_quantile(
+            0.50,
+            sum by (le) (rate(raginspector_http_request_duration_seconds_bucket[5m]))
+          )

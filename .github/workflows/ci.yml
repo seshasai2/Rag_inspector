@@ -1,0 +1,489 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Quality gates (fail-fast via needs on downstream jobs) ─────────────────
+  backend-lint:
+    name: Backend lint & types
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pip install bandit black isort
+      - name: Black format
+        run: python -m black --check app
+      - name: isort
+        run: python -m isort --check-only app
+      - name: Ruff lint
+        run: python -m ruff check app
+      - name: Mypy
+        run: python -m mypy
+      - name: Bandit (SAST)
+        run: |
+          mkdir -p ../artifacts
+          bandit -r app -ll -ii -x tests,alembic -f json -o ../artifacts/bandit-backend.json
+          bandit -r app -ll -ii -x tests,alembic
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: artifacts/bandit-backend.json
+          if-no-files-found: ignore
+
+  backend-test:
+    name: Backend tests & migrations
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: raginspector
+          POSTGRES_PASSWORD: raginspector_secret
+          POSTGRES_DB: raginspector
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raginspector"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      FORCE_POSTGRES: "1"
+      TESTING: "1"
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql+asyncpg://raginspector:raginspector_secret@localhost:5432/raginspector
+      DATABASE_SYNC_URL: postgresql://raginspector:raginspector_secret@localhost:5432/raginspector
+      TEST_DATABASE_URL: postgresql+asyncpg://raginspector:raginspector_secret@localhost:5432/raginspector_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-secret-key-min-32-characters-long!!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Create Postgres test database
+        env:
+          PGPASSWORD: raginspector_secret
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          psql -h localhost -U raginspector -d raginspector -c "SELECT 1 FROM pg_database WHERE datname='raginspector_test'" | grep -q 1 \
+            || psql -h localhost -U raginspector -d raginspector -c "CREATE DATABASE raginspector_test;"
+      - name: Alembic heads
+        run: python -m alembic heads
+      - name: Migration downgrade present
+        working-directory: .
+        run: python scripts/check_migration_downgrades.py
+      - name: Alembic upgrade
+        run: python -m alembic upgrade head
+      - name: Unit tests + coverage
+        run: |
+          mkdir -p ../artifacts
+          python -m pytest tests/unit/ -q --tb=line \
+            --cov=app.services --cov=app.workers \
+            --cov-config=.coveragerc \
+            --cov-fail-under=95 \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:../artifacts/coverage-backend.xml \
+            --cov-report=html:../artifacts/coverage-html \
+            --junitxml=../artifacts/junit-backend.xml
+      - name: API integration tests
+        run: |
+          mkdir -p ../artifacts
+          python -m pytest tests/test_api.py -q --tb=short --junitxml=../artifacts/junit-api.xml
+      - name: Backend integration suite
+        run: |
+          python -m pytest tests/integration/ -q --tb=short --junitxml=../artifacts/junit-integration.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-reports
+          path: artifacts/
+          if-no-files-found: ignore
+
+  sdk:
+    name: SDK package & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: python -m pip install --upgrade pip build twine
+      - name: Install editable
+        run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Build sdist + wheel
+        run: python -m build
+      - name: Twine check
+        run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-dist
+          path: sdk/dist/
+
+  frontend:
+    name: Frontend lint, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript strict
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Unit tests with coverage gate
+        run: npm run test:coverage
+      - name: Next.js production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+      - name: Dependency audit (npm)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Unused / duplicate dependency report
+        run: |
+          npx --yes depcheck --ignores="@types/*,autoprefixer,postcss,tailwindcss,eslint*,vitest,@testing-library/*,jsdom" || true
+          npx --yes npm-check-updates --format group || true
+        continue-on-error: true
+
+  version-consistency:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check VERSION sync
+        run: |
+          set -e
+          V=$(tr -d '[:space:]' < VERSION)
+          echo "Canonical VERSION=$V"
+          grep -q "version = \"$V\"" backend/pyproject.toml
+          grep -q "\"version\": \"$V\"" frontend/package.json
+          grep -q "version = \"$V\"" sdk/pyproject.toml
+          echo "All package versions match VERSION file"
+
+  compose:
+    name: Compose validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Development compose
+        run: docker compose config --quiet
+      - name: Test compose
+        run: docker compose -f docker-compose.test.yml config --quiet
+      - name: Observability overlay
+        run: docker compose -f docker-compose.yml -f docker-compose.observability.yml config --quiet
+      - name: Production compose
+        env:
+          SECRET_KEY: ci-secret-key-min-32-characters-long!!
+          POSTGRES_PASSWORD: ci_postgres_secret
+          REDIS_PASSWORD: ci_redis_secret
+          FRONTEND_URL: https://example.com
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          ALLOWED_HOSTS: api.example.com
+          OPS_SHARED_TOKEN: ci-ops-token-min-16c
+        run: docker compose -f docker-compose.prod.yml config --quiet
+      - name: Production TLS overlay
+        env:
+          SECRET_KEY: ci-secret-key-min-32-characters-long!!
+          POSTGRES_PASSWORD: ci_postgres_secret
+          REDIS_PASSWORD: ci_redis_secret
+          FRONTEND_URL: https://example.com
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          ALLOWED_HOSTS: api.example.com
+          OPS_SHARED_TOKEN: ci-ops-token-min-16c
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml config --quiet
+
+  integration-tests:
+    name: Backend integration tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: raginspector
+          POSTGRES_PASSWORD: raginspector_secret
+          POSTGRES_DB: raginspector
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raginspector"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      FORCE_POSTGRES: "1"
+      TESTING: "1"
+      ENVIRONMENT: test
+      DATABASE_URL: postgresql+asyncpg://raginspector:raginspector_secret@localhost:5432/raginspector
+      DATABASE_SYNC_URL: postgresql://raginspector:raginspector_secret@localhost:5432/raginspector
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-secret-key-min-32-characters-long!!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Integration tests
+        run: python -m pytest tests/integration/ -q --tb=short
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: [frontend]
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E (UI via Next webServer; API flows skip if backend down)
+        run: npm run test:e2e
+        env:
+          CI: "true"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+
+  loadtest-k6:
+    name: k6 smoke load test
+    runs-on: ubuntu-latest
+    needs: [compose]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq k6
+      - name: Validate k6 scripts syntax
+        run: |
+          k6 inspect loadtests/k6/smoke.js
+          k6 inspect loadtests/k6/load_100.js
+          k6 inspect loadtests/k6/load_500.js
+          k6 inspect loadtests/k6/stress_1000.js
+
+  helm:
+    name: Helm lint & template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Validate chart
+        run: python scripts/validate_helm_chart.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helm-rendered
+          path: artifacts/helm-render-*.yaml
+          if-no-files-found: ignore
+
+  sbom:
+    name: SBOM generation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate SBOMs
+        run: python scripts/generate_sbom.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: artifacts/sbom/
+
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [backend-lint, frontend, compose, helm]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: raginspector-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+          load: true
+          tags: raginspector-frontend:ci
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8000
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+      - name: Trivy image — backend
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: raginspector-backend:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Trivy image — frontend
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: raginspector-frontend:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Nginx images
+        run: |
+          docker build -t raginspector-nginx ./nginx
+          docker build -t raginspector-nginx:tls -f nginx/Dockerfile.tls ./nginx
+      - name: DB image
+        run: docker build -t raginspector-db ./docker -f docker/Dockerfile.db
+
+  security-scan:
+    name: Security & dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Trivy filesystem
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-fs-sarif
+          path: trivy-fs.sarif
+          if-no-files-found: ignore
+      - name: pip-audit
+        uses: pypa/gh-action-pip-audit@v1.0.8
+        with:
+          inputs: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps
+        working-directory: frontend
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: frontend
+
+  release-validation:
+    name: Release validation gate
+    runs-on: ubuntu-latest
+    needs:
+      - backend-lint
+      - backend-test
+      - integration-tests
+      - sdk
+      - frontend
+      - e2e
+      - loadtest-k6
+      - version-consistency
+      - compose
+      - helm
+      - sbom
+      - docker-build
+      - security-scan
+    steps:
+      - run: echo "All CI stages passed — release candidate ready"
