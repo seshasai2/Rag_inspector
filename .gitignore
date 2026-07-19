@@ -29,6 +29,10 @@ out/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+coverage/
+frontend/coverage/
+frontend/test-results/
+playwright-report/
 
 # Logs
 *.log

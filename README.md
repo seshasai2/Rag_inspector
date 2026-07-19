@@ -6,6 +6,8 @@ Open-source **RAG pipeline debugger** for engineers shipping retrieval-augmented
 
 Self-host with free OSS tooling only (Docker Compose, Postgres, Redis, Celery, Prometheus/Grafana, GitHub Actions).
 
+**New to the repo?** Read [PROJECT_GUIDE.md](PROJECT_GUIDE.md) — canonical engineering overview (architecture, trade-offs, failure modes, interview prep).
+
 ![Sentence grounding (demo seed)](docs/screenshots/grounding-attribution.png)
 
 ---
@@ -171,12 +173,9 @@ CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
 ## Performance & benchmarks
 
-- Verified performance (independent re-check + soak + k6/Locust): [VERIFIED_PERFORMANCE_REPORT.md](VERIFIED_PERFORMANCE_REPORT.md)
-- Prior benchmark RCA: [PERFORMANCE_BENCHMARK_REPORT.md](PERFORMANCE_BENCHMARK_REPORT.md)
-- Older reference tables: [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)
+- Measured baselines and rate-limit notes: [docs/engineering/PERFORMANCE.md](docs/engineering/PERFORMANCE.md)
 - Harness: `loadtests/bench_verify.py`, `loadtests/bench_auth_load.py` (see [loadtests/README.md](loadtests/README.md))
-
-Cold-start ML load: [docs/COLD_START.md](docs/COLD_START.md).
+- Cold-start ML load: [docs/COLD_START.md](docs/COLD_START.md)
 
 ---
 
@@ -238,8 +237,8 @@ Engineering-style narratives (not marketing):
 
 ---
 
-## Hiring / verification
+## Hiring / deep dive
 
-**Canonical freeze package:** [ENGINEERING_EVIDENCE_PACKAGE.md](ENGINEERING_EVIDENCE_PACKAGE.md)
+**Start here:** [PROJECT_GUIDE.md](PROJECT_GUIDE.md)
 
-Also: [VERIFIED_PERFORMANCE_REPORT.md](VERIFIED_PERFORMANCE_REPORT.md) · [HIRING_VERIFICATION_REPORT.md](HIRING_VERIFICATION_REPORT.md) · [docs/HIRING_SIGNAL.md](docs/HIRING_SIGNAL.md) · [docs/demo/](docs/demo/)
+Also: [docs/HIRING.md](docs/HIRING.md) · [docs/demo/](docs/demo/) · [docs/case-studies/](docs/case-studies/)

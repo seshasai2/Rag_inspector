@@ -16,7 +16,7 @@ Nginx edge also applies **~5/minute** on `/api/v1/auth/login` when traffic goes 
 Rapid login loops in benchmarks will return **HTTP 429** and look like “auth broken.”  
 For authenticated latency/load: obtain **one** token, reuse `Authorization: Bearer …`, and space login samples (≥4s apart under the 20/min budget).
 
-See [PERFORMANCE_BENCHMARK_REPORT.md](../PERFORMANCE_BENCHMARK_REPORT.md) for the verification pass.
+See [docs/engineering/PERFORMANCE.md](../docs/engineering/PERFORMANCE.md) for measured baselines and the 429 RCA.
 
 ## Prerequisites
 
@@ -86,10 +86,10 @@ DEMO_EMAIL=demo@example.com DEMO_PASSWORD=DemoPass123! \
 
 1. Compare p50/p95/p99 across smoke → stress; large jumps on `/ops/ready` usually indicate DB or Redis saturation.
 2. Cross-check `GET /api/v1/ops/backlog` during runs that also ingest traffic.
-3. Re-run after worker/API replica changes; numbers in root `PERFORMANCE_REPORT.md` are reference baselines only.
+3. Re-run after worker/API replica changes; numbers in `docs/engineering/PERFORMANCE.md` are reference baselines only.
 
 ## Related
 
-- [PERFORMANCE_REPORT.md](../PERFORMANCE_REPORT.md)
+- [docs/engineering/PERFORMANCE.md](../docs/engineering/PERFORMANCE.md)
 - [docs/API.md](../docs/API.md)
 - [docs/AUTOSCALING.md](../docs/AUTOSCALING.md)

@@ -6,7 +6,7 @@ Full walkthrough: **[docs/DEVELOPER.md](docs/DEVELOPER.md)**.
 
 ## Before you start
 
-1. Read **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** (what is core vs deferred).
+1. Read **[PROJECT_GUIDE.md](PROJECT_GUIDE.md)** (system overview) and **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** (core vs deferred).
 2. Follow **[docs/DEVELOPER.md](docs/DEVELOPER.md)** (prereqs, Docker path, seed login). On Windows, use **[docs/WINDOWS.md](docs/WINDOWS.md)** + `scripts/setup.ps1` then `scripts/bootstrap.ps1`.
 3. Skim **[ROADMAP.md](ROADMAP.md)** — work one Immediate Next Task at a time; do not expand Phase 10 stubs. Troubleshooting: **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
 

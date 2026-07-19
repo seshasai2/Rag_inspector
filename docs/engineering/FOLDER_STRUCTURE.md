@@ -28,7 +28,8 @@ raginspector/
 ├── infra/                      # Observability assets
 ├── docker-compose*.yml
 ├── Makefile
-└── PERFORMANCE_REPORT.md
+├── PROJECT_GUIDE.md          # canonical engineering guide
+└── docs/engineering/PERFORMANCE.md
 ```
 
 ## Placement rules

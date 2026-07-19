@@ -11,6 +11,7 @@
 
 | Document | Role |
 |----------|------|
+| `PROJECT_GUIDE.md` | **Canonical engineering overview** — architecture, trade-offs, ops, interview prep |
 | `08_RAGInspector_PRD.md` (v1) | **Hiring / core product truth** — SDK, grounding, RAGAS, BM25, failure classifier, dashboard, queries, chunks, metrics, pipelines, settings |
 | `08_raginspector_spec.md` (v2) | Reference for Trust Score, Hallucination Cost, autofix loop — adopt where it strengthens the hiring story |
 | `08_raginspector_prd_v3_final.md` (v3) | **Deferred** — Phase 10 only. Do not expand enterprise surface until Phases 1–9 are complete |
@@ -96,7 +97,7 @@ Raise confidence to hiring bar.
 | 4.3 | SDK tests: decorator sync/async, batch flush, failure isolation | ≥ critical path covered | ✅ |
 | 4.4 | Frontend critical path tests (auth guard, dashboard metrics render, query detail grounding) | Vitest/Playwright as appropriate | ✅ |
 | 4.5 | Coverage gate: backend ≥ 95% on `app/services` + `app/workers` critical modules; raise overall toward 95% | CI fails below threshold | ✅ |
-| 4.6 | Refresh `TEST_REPORT.md` to match reality | No stale claims | ✅ |
+| 4.6 | Keep testing claims current (`docs/engineering/TESTING_STRATEGY.md`; stale `TEST_REPORT.md` removed) | No stale claims | ✅ |
 | 4.7 | Pin Python dependency versions for reproducible CI | Lockfile or fully pinned requirements | ✅ |
 
 ---

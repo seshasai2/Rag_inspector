@@ -50,4 +50,4 @@ Not as GA. Partial surfaces are honesty-gated. Do not demo them as finished ente
 ## Hiring interviews
 
 ### Where should I start in a live review?
-[docs/HIRING.md](HIRING.md) · [docs/HIRING_SIGNAL.md](HIRING_SIGNAL.md) · seeded grounding UI on `/queries/[id]`.
+**[PROJECT_GUIDE.md](../PROJECT_GUIDE.md)** · [HIRING.md](HIRING.md) · seeded grounding UI on `/queries/[id]`.

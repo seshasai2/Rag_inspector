@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-Mermaid diagrams for RAGInspector system design. Read [ARCHITECTURE.md](../ARCHITECTURE.md) for the binding narrative, then use the diagrams below for C4 views and operational flows.
+Mermaid diagrams for RAGInspector system design. Start with [PROJECT_GUIDE.md](../../PROJECT_GUIDE.md) for the full engineering narrative, then [ARCHITECTURE.md](../ARCHITECTURE.md) for the binding product scope, then the diagrams below for C4 views and operational flows.
 
 ## Sequence flows (core loop)
 
@@ -32,7 +32,8 @@ Mermaid diagrams for RAGInspector system design. Read [ARCHITECTURE.md](../ARCHI
 
 ## Related engineering docs
 
+- [PROJECT_GUIDE.md](../../PROJECT_GUIDE.md) — canonical overview
 - [API.md](../API.md) — OpenAPI entry points and auth
 - [WORKER.md](../WORKER.md) — concurrency and backlog
 - [DEPLOYMENT.md](../DEPLOYMENT.md) — runbooks for local and prod
-- [engineering/](../engineering/) — coding standards, scaling, security
+- [engineering/](../engineering/) — coding standards, scaling, security, performance

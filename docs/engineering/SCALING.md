@@ -46,7 +46,7 @@ k6 run loadtests/k6/load_100.js
 k6 run loadtests/k6/stress_1000.js
 ```
 
-Record p50/p95/p99 into your environment’s capacity doc; root [PERFORMANCE_REPORT.md](../../PERFORMANCE_REPORT.md) is a baseline only.
+Record p50/p95/p99 into your environment’s capacity doc; [PERFORMANCE.md](PERFORMANCE.md) is a baseline only.
 
 ## Anti-patterns
 

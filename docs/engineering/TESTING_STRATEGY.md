@@ -35,6 +35,6 @@ Layers of verification in RAGInspector.
 
 ## Load / performance
 
-Not every PR; run before releases or capacity changes. Capture summaries next to [PERFORMANCE_REPORT.md](../../PERFORMANCE_REPORT.md).
+Not every PR; run before releases or capacity changes. Capture summaries next to [PERFORMANCE.md](PERFORMANCE.md).
 
 Related: [RELEASE_PROCESS.md](RELEASE_PROCESS.md), [CODING_STANDARDS.md](CODING_STANDARDS.md).

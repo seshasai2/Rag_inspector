@@ -123,6 +123,7 @@ Contribution norms and PR expectations: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 | Doc | When |
 |-----|------|
+| [PROJECT_GUIDE.md](../PROJECT_GUIDE.md) | Canonical system overview (start here) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | What to build / what is deferred |
 | [SEED.md](SEED.md) | Demo dataset |
 | [COMPOSE_HEALTH.md](COMPOSE_HEALTH.md) | Healthchecks / depends_on |
