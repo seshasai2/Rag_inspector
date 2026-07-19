@@ -4,8 +4,19 @@ Synthetic load against RAGInspector health and readiness endpoints using open-so
 
 - [k6](https://k6.io/) (Grafana Labs, AGPL)
 - [Locust](https://locust.io/) (MIT)
+- Python evidence harness: `bench_verify.py`, `bench_auth_load.py` (httpx; no k6 required)
 
 Default target: `BASE_URL=http://localhost:8000`. Start the stack with `make up` (or `make bootstrap`) before running scripts.
+
+## Critical: login rate limits
+
+`POST /api/v1/auth/login` is limited to **20/minute per IP** (SlowAPI: `AUTH_LOGIN_LIMIT`).  
+Nginx edge also applies **~5/minute** on `/api/v1/auth/login` when traffic goes through the proxy.
+
+Rapid login loops in benchmarks will return **HTTP 429** and look like “auth broken.”  
+For authenticated latency/load: obtain **one** token, reuse `Authorization: Bearer …`, and space login samples (≥4s apart under the 20/min budget).
+
+See [PERFORMANCE_BENCHMARK_REPORT.md](../PERFORMANCE_BENCHMARK_REPORT.md) for the verification pass.
 
 ## Prerequisites
 

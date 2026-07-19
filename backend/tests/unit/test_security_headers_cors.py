@@ -29,8 +29,24 @@ def test_dev_cors_allows_localhost_and_regex():
         frontend_url="http://localhost:3000",
     )
     assert "http://localhost:3000" in kwargs["allow_origins"]
+    assert "http://localhost:13000" in kwargs["allow_origins"]
     assert kwargs["allow_origin_regex"]
+    assert "localhost" in kwargs["allow_origin_regex"]
     assert kwargs["allow_methods"] == ["*"]
+
+
+def test_dev_cors_regex_matches_verify_ports_origin():
+    import re
+
+    kwargs = sh.cors_middleware_kwargs(
+        is_production=False,
+        frontend_url="http://127.0.0.1:13000",
+    )
+    pattern = re.compile(kwargs["allow_origin_regex"])
+    assert pattern.fullmatch("http://localhost:13000")
+    assert pattern.fullmatch("http://127.0.0.1:13000")
+    # Dev regex is port-agnostic on loopback; production still locks to FRONTEND_URL only.
+    assert pattern.fullmatch("https://evil.example") is None
 
 
 def test_apply_security_headers_always_sets_core():

@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from redis import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,7 +123,6 @@ async def metrics(
     Protect at the edge (network policy / Nginx allowlist). Sensitive ops
     surfaces (``/backlog``, ``/experimental``) still require ``X-Ops-Token``.
     """
-    response.media_type = "text/plain; version=0.0.4"
     from app.core.http_metrics import render_http_metrics_lines
     from app.core.jwt_denylist import render_denylist_metrics_lines
 
@@ -150,4 +149,9 @@ async def metrics(
             ]
         )
     lines.append("")
-    return "\n".join(lines)
+    # Must be plain text — returning a bare str makes FastAPI JSON-encode it,
+    # which breaks Prometheus scrapes (Content-Type application/json, up=0).
+    return PlainTextResponse(
+        content="\n".join(lines),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )

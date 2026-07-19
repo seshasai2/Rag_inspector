@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Prometheus scrape: `/api/v1/ops/metrics` now returns `PlainTextResponse` (was JSON-encoded string → `up=0`)
 - Critical coverage gate regression: `ingest_service` unit tests restore backend critical coverage to ≥95% (was 91.8%)
+
+### Documentation
+- Canonical freeze validation: `ENGINEERING_EVIDENCE_PACKAGE.md`
 
 ### Security
 - Access JWT Redis denylist on logout (optional `access_token` + `revoke_all_sessions`)

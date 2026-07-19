@@ -70,29 +70,35 @@ export default function RegisterPage() {
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-3xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Full name</label>
-              <input 
-                {...register('name')} 
+              <label htmlFor="register-name" className="block text-sm font-medium text-slate-300 mb-2">Full name</label>
+              <input
+                id="register-name"
+                {...register('name')}
+                autoComplete="name"
                 placeholder="Jane Smith"
                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
               />
               {errors.name && <p className="text-red-400 text-xs mt-1.5">{errors.name.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Email address</label>
-              <input 
-                {...register('email')} 
-                type="email" 
+              <label htmlFor="register-email" className="block text-sm font-medium text-slate-300 mb-2">Email address</label>
+              <input
+                id="register-email"
+                {...register('email')}
+                type="email"
+                autoComplete="email"
                 placeholder="you@company.com"
                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
               />
               {errors.email && <p className="text-red-400 text-xs mt-1.5">{errors.email.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
-              <input 
-                {...register('password')} 
-                type="password" 
+              <label htmlFor="register-password" className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+              <input
+                id="register-password"
+                {...register('password')}
+                type="password"
+                autoComplete="new-password"
                 placeholder="Min 8 chars, 1 uppercase, 1 number"
                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
               />

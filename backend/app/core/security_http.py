@@ -47,6 +47,9 @@ def cors_allow_origins(*, is_production: bool, frontend_url: str) -> list[str]:
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:80",
+        "http://localhost:13000",  # docker-compose.verify-ports.yml UI
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:13000",
         "http://127.0.0.1:52478",
     ]
     origins = [origin] if origin else []
@@ -68,8 +71,8 @@ def cors_middleware_kwargs(*, is_production: bool, frontend_url: str) -> dict[st
         kwargs["allow_headers"] = list(PROD_CORS_HEADERS)
         kwargs["expose_headers"] = list(PROD_CORS_EXPOSE_HEADERS)
     else:
-        # Local Next.js / preview ports on 127.0.0.1
-        kwargs["allow_origin_regex"] = r"https?://127\.0\.0\.1:\d+"
+        # Local Next.js / Compose verify-ports on localhost or 127.0.0.1 (any port)
+        kwargs["allow_origin_regex"] = r"https?://(localhost|127\.0\.0\.1):\d+"
         kwargs["allow_methods"] = ["*"]
         kwargs["allow_headers"] = ["*"]
         kwargs["expose_headers"] = list(PROD_CORS_EXPOSE_HEADERS)

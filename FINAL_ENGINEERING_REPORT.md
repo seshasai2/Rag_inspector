@@ -1,7 +1,11 @@
 # RAGInspector — Final Engineering Report
 
+> **Superseded for freeze scores / readiness stamps.**  
+> Canonical document: **[ENGINEERING_EVIDENCE_PACKAGE.md](ENGINEERING_EVIDENCE_PACKAGE.md)** (2026-07-19).  
+> Keep this file as historical session notes only.
+
 **Date:** 2026-07-15  
-**Status:** Enterprise completion **COMPLETE**  
+**Status:** Enterprise completion **COMPLETE** *(historical claim — see evidence package)*  
 **Canonical audit:** [PROJECT_AUDIT.md](PROJECT_AUDIT.md)
 
 ---

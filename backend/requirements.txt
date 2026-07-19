@@ -154,8 +154,6 @@ packaging==26.2
     #   kombu
     #   limits
     #   transformers
-passlib[bcrypt]==1.7.4
-    # via -r requirements.in
 pillow==12.3.0
     # via reportlab
 prompt-toolkit==3.0.52

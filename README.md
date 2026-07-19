@@ -2,247 +2,235 @@
 
 **Find why your RAG app fails — in under 30 seconds.**
 
-RAGInspector is an open-source **RAG pipeline debugger**: instrument retrieval + generation with a free Python SDK, analyze traces asynchronously (grounding NLI, BM25 vs vector, failure class, Trust Score), and inspect sentence-level attribution in a Next.js dashboard.
+Open-source **RAG pipeline debugger** for engineers shipping retrieval-augmented generation: instrument with a Python SDK, analyze traces asynchronously (sentence-level NLI grounding, BM25 vs vector, failure class, Trust Score), and inspect attribution in a Next.js dashboard.
 
-Built for production-grade local/self-hosted deployment using **only free open-source tooling** (Docker Compose, Prometheus, Grafana, GitHub Actions, Playwright, k6, Locust).
+Self-host with free OSS tooling only (Docker Compose, Postgres, Redis, Celery, Prometheus/Grafana, GitHub Actions).
 
-![Sentence grounding (demo seed data)](docs/screenshots/grounding-attribution.png)
+![Sentence grounding (demo seed)](docs/screenshots/grounding-attribution.png)
 
 ---
 
-## The business problem (60-second brief)
+## Business problem
 
 | | |
 |--|--|
-| **Problem** | RAG products fail in production without visibility into *retrieval* vs *generation*. Teams debug via logs and guesswork. |
-| **Customer** | ML/backend engineers and platform teams shipping support bots, internal knowledge Q&A, and search+answer apps. |
-| **Why existing tools fall short** | Many observability tools center LLM spans and prompts; they rarely show sentence↔chunk grounding, BM25 vs vector ranking, or a Trust Score tied to hallucination cost. |
-| **Success metrics** | Time-to-root-cause (&lt;30s on seeded traces); Trust Score / grounded-fraction trends; analysis backlog SLO; optional $/wrong-answer cost signal. |
-| **ROI** | Fewer escalations from wrong answers; faster iteration on chunking/retrieval; executives see quality as dollars, not only F1. |
-| **Pricing (OSS)** | Free to self-host. Optional Razorpay plans exist for a future SaaS lane — **not required** locally ([EXPERIMENTAL.md](docs/EXPERIMENTAL.md)). |
+| **Problem** | Production RAG fails without separating *retrieval* misses from *generation* hallucinations. Teams guess from logs. |
+| **Who** | ML/backend/platform engineers building support bots, internal knowledge Q&A, search+answer products. |
+| **Why not Langfuse / generic LLM ops alone** | Those center prompts and spans; they rarely show sentence↔chunk grounding, BM25 vs dense ranking, or a Trust Score tied to $/wrong-answer. |
+| **Success** | Root-cause a bad answer in &lt;30s on seeded data; trend Trust Score / grounded fraction; optional hallucination cost signal. |
 
-Case studies: [docs/case-studies/](docs/case-studies/) · Why these designs: [docs/adr/](docs/adr/) · Hiring review: [docs/HIRING_SIGNAL.md](docs/HIRING_SIGNAL.md)
-
----
-
-## Project overview
-
-| Capability | What you get |
-|------------|--------------|
-| Trace ingest | SDK + API keys → FastAPI → Postgres |
-| Async analysis | Celery workers (NLI grounding, BM25, Trust Score) |
-| Dashboard | Queries, chunks, metrics, autofix, monitoring |
-| Ops | Nginx, health probes, Prometheus/Grafana overlay |
-| Enterprise honesty | Partial SSO/SCIM clearly labeled — see [docs/EXPERIMENTAL.md](docs/EXPERIMENTAL.md) |
-
----
-
-## Screenshots
-
-| Surface | Asset |
-|---------|-------|
-| Grounding attribution | [docs/screenshots/grounding-attribution.png](docs/screenshots/grounding-attribution.png) |
-| Capture notes | [docs/screenshots/](docs/screenshots/) |
-
-Demo walkthroughs: [docs/demo/](docs/demo/)
+**Vision:** Detect → Explain → Recommend → Verify — without claiming unfinished SSO/billing as GA ([docs/EXPERIMENTAL.md](docs/EXPERIMENTAL.md)).
 
 ---
 
 ## Architecture
 
 ```text
-Your RAG app ──SDK──► Nginx/FastAPI ──► PostgreSQL
-                           │
-                           ▼
-                     Celery + Redis
-                     (NLI, BM25, Trust Score)
-                           │
-                           ▼
-                     Next.js dashboard
+Your RAG app ── SDK / API key ──► Nginx ──► FastAPI ──► PostgreSQL
+                                      │
+                                      ▼
+                                Celery + Redis
+                         (NLI grounding, BM25, Trust Score)
+                                      │
+                                      ▼
+                              Next.js dashboard
 ```
 
-Full Mermaid pack: [docs/architecture/](docs/architecture/) · Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+| Flow | Doc |
+|------|-----|
+| Ingest → analysis → UI | [docs/architecture/](docs/architecture/) |
+| Design narrative | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| ADRs | [docs/adr/](docs/adr/) |
+
+**Request path:** SDK `POST /api/v1/ingest/trace` → persist chunks → enqueue Celery → worker runs grounding/BM25/failure/Trust → dashboard `GET /queries/{id}`.
+
+---
+
+## Features (verified product surface)
+
+| Feature | Status |
+|---------|--------|
+| SDK ingest + LangChain / LlamaIndex / Haystack adapters | Live |
+| Sentence ↔ chunk grounding UI | Live |
+| BM25 vs vector comparison | Live |
+| Failure classification + Trust Score + hallucination cost | Live |
+| Knowledge gaps, autofix, monitoring, regression, documents | Live (scoped) |
+| JWT + refresh denylist, MFA TOTP, API keys, org RBAC | Live |
+| Prometheus metrics + Compose observability overlay | Live |
+| Google SSO / Razorpay / SAML / SCIM | Partial or experimental — see EXPERIMENTAL.md |
+
+Honest inventory: [docs/IMPLEMENTED.md](docs/IMPLEMENTED.md)
+
+---
+
+## Quick start
+
+```bash
+git clone <this-repo>
+cd raginspector
+cp .env.example .env          # SECRET_KEY ≥ 32 chars
+make bootstrap                # build → up → migrate → health
+make seed                     # demo@example.com / DemoPass123!
+```
+
+**Windows** (ports 3000/5432 often busy):
+
+```powershell
+.\scripts\setup.ps1
+docker compose -f docker-compose.yml -f docker-compose.verify-ports.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.verify-ports.yml run --rm backend alembic upgrade head
+docker compose -f docker-compose.yml -f docker-compose.verify-ports.yml run --rm backend python scripts/seed_demo.py
+```
+
+| Surface | Default | Verify-ports overlay |
+|---------|---------|----------------------|
+| UI | http://localhost:3000 | http://localhost:13000 |
+| API | http://localhost:8000 | http://localhost:18000 |
+| Nginx | http://localhost:80 | http://localhost:18080 |
+
+Login: **demo@example.com** / **DemoPass123!**  
+API docs (dev): `/docs` · `/redoc`
 
 ---
 
 ## Tech stack
 
-| Layer | Choice (free/OSS) |
-|-------|-------------------|
-| API | FastAPI, SQLAlchemy, Alembic |
-| Workers | Celery, Redis, local sentence-transformers |
-| UI | Next.js 15, TanStack Query, Tailwind |
-| Data | PostgreSQL 16 + pgvector |
+| Layer | Choice |
+|-------|--------|
+| API | FastAPI, SQLAlchemy, Alembic, Pydantic |
+| Workers | Celery, Redis, sentence-transformers (local NLI) |
+| UI | Next.js 15, TypeScript, TanStack Query, Tailwind |
+| Data | PostgreSQL 16 (+ pgvector image) |
 | Edge | Nginx |
-| Observability | Prometheus, Grafana, node-exporter, cAdvisor |
+| Observability | Prometheus, Grafana, exporters; optional OTel extras |
 | CI | GitHub Actions |
-| Load | k6, Locust |
-| E2E | Playwright |
+| Load / E2E | k6, Locust, Playwright |
+
+Technology reasoning: [docs/engineering/DESIGN_DECISIONS.md](docs/engineering/DESIGN_DECISIONS.md)
 
 ---
 
-## Features
+## Project structure
 
-- Sentence ↔ chunk grounding UI
-- BM25 vs vector ranking comparison
-- Failure classification + hallucination cost signals
-- Trust Score dashboard + Redis-cached aggregates
-- API keys, JWT + MFA TOTP, audit logs
-- Monitoring probes, regression snapshots, knowledge gaps
-- Webhook deliveries with HMAC signatures
-- Production fail-closed settings validation
-
----
-
-## Installation (local)
-
-```bash
-git clone <this-repo>
-cd raginspector
-cp .env.example .env          # set SECRET_KEY (≥32 characters)
-make bootstrap                # build → start → migrate → health
-make seed                     # optional demo data
+```text
+backend/     FastAPI, services, Celery workers, Alembic
+frontend/    Next.js App Router dashboard + Playwright e2e
+sdk/         Python tracer + framework integrations
+docs/        Architecture, ops, case studies, PRD archive
+infrastructure/  Helm / K8s / Terraform notes
+loadtests/   k6 + Locust
+nginx/       Reverse proxy
 ```
 
-Windows: `.\scripts\setup.ps1` then `.\scripts\bootstrap.ps1` (Make recipes need a POSIX shell — see [docs/WINDOWS.md](docs/WINDOWS.md)).
-
-Open **http://localhost:3000** → `demo@example.com` / `DemoPass123!`  
-API docs (dev): **http://localhost:8000/docs** (Swagger) · **/redoc**
-
 ---
 
-## Docker
+## API overview
 
-```bash
-docker compose up -d --build
-docker compose run --rm backend alembic upgrade head
+- OpenAPI: `http://localhost:8000/openapi.json`
+- Guide: [docs/API.md](docs/API.md)
+- Collections: [docs/api/](docs/api/)
+
+```python
+from raginspector import RAGInspector
+
+inspector = RAGInspector(
+    api_key="ri-...",
+    pipeline_name="my-rag",
+    base_url="http://localhost:8000",
+)
 ```
-
-Production:
-
-```bash
-cp .env.production.example .env.production   # fill secrets including OPS_SHARED_TOKEN
-./scripts/deploy.sh                          # or .\scripts\deploy.ps1
-./scripts/deploy.sh --obs                    # + Prometheus/Grafana/exporters
-```
-
-Compose files: `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.observability.yml`, `nginx/nginx.conf`
-
----
-
-## Development
-
-```bash
-make lint typecheck test
-cd backend && pytest tests/unit/ tests/integration/ -q
-cd frontend && npm test && npm run test:e2e
-```
-
-Coding standards: [docs/engineering/CODING_STANDARDS.md](docs/engineering/CODING_STANDARDS.md)
-
----
-
-## Deployment
-
-| Target | Guide |
-|--------|-------|
-| Compose prod | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), `scripts/deploy.sh` / `deploy.ps1` |
-| TLS | [docs/TLS.md](docs/TLS.md) |
-| Kubernetes / Helm | [docs/KUBERNETES.md](docs/KUBERNETES.md), [docs/HELM.md](docs/HELM.md) |
-| Frontend free host | Vercel / Cloudflare Pages — point `NEXT_PUBLIC_API_URL` at your API; see Deployment walkthrough |
 
 ---
 
 ## Testing
 
-| Suite | Command |
-|-------|---------|
-| Backend unit | `cd backend && pytest tests/unit/ -q` |
-| Integration | `cd backend && pytest tests/integration/ -q` |
-| Frontend unit | `cd frontend && npm test` |
-| E2E | `cd frontend && npm run test:e2e` |
-| Load (k6) | `k6 run loadtests/k6/smoke.js` |
-| Load (Locust) | see [loadtests/README.md](loadtests/README.md) |
+| Suite | Command | Notes |
+|-------|---------|-------|
+| Backend unit | `cd backend && pytest tests/unit/ -q` | Coverage gate ≥95% on critical services/workers |
+| Backend API | `pytest tests/test_api.py -q` | |
+| Integration | `pytest tests/integration/ -q` | |
+| SDK | `cd sdk && pytest -q` | |
+| Frontend | `cd frontend && npm test` | |
+| E2E | `npm run test:e2e` | Point at the correct UI port — see [frontend/e2e/README.md](frontend/e2e/README.md) |
+| Load | `k6 run loadtests/k6/smoke.js` | Requires k6 installed |
 
-CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (lint, types, security, tests, coverage, Docker, Helm, SBOM, e2e, k6 inspect)
+CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
 ---
 
-## Monitoring
+## Security
+
+- bcrypt passwords, hashed API keys, JWT (PyJWT) + refresh revoke / access denylist
+- MFA TOTP (encrypted secrets), rate limits, security headers, prod fail-closed settings
+- Bandit / pip-audit / npm audit / Trivy / Gitleaks in CI
+- Details: [SECURITY.md](SECURITY.md) · [docs/SECRETS.md](docs/SECRETS.md)
+
+**Known residual:** SAML/SCIM experimental; JWT denylist fail-open without Redis (short access TTL + metric).
+
+---
+
+## Performance & benchmarks
+
+- Verified performance (independent re-check + soak + k6/Locust): [VERIFIED_PERFORMANCE_REPORT.md](VERIFIED_PERFORMANCE_REPORT.md)
+- Prior benchmark RCA: [PERFORMANCE_BENCHMARK_REPORT.md](PERFORMANCE_BENCHMARK_REPORT.md)
+- Older reference tables: [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)
+- Harness: `loadtests/bench_verify.py`, `loadtests/bench_auth_load.py` (see [loadtests/README.md](loadtests/README.md))
+
+Cold-start ML load: [docs/COLD_START.md](docs/COLD_START.md).
+
+---
+
+## Monitoring & ops
 
 ```bash
 make up-obs
 # Prometheus http://localhost:19090
-# Grafana    http://localhost:13001  (admin / admin)
+# Grafana    http://localhost:13001
 ```
 
-Scrapes: API metrics, node-exporter, cAdvisor, Redis exporter, Postgres exporter.  
-Dashboard JSON: `infra/observability/grafana/dashboards/`
+Deploy: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) · TLS: [docs/TLS.md](docs/TLS.md) · Backup/DR: [docs/BACKUP.md](docs/BACKUP.md) · [docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md)
 
 ---
 
-## Configuration
+## Case studies
 
-See `.env.example` and `.env.production.example`. Critical production keys:
+Engineering-style narratives (not marketing):
 
-- `SECRET_KEY` (≥32)
-- `OPS_SHARED_TOKEN` (≥16) — gates `/api/v1/ops/backlog` and `/experimental`
-- `POSTGRES_PASSWORD`, `REDIS_PASSWORD`
-- `FRONTEND_URL` (https), `ALLOWED_HOSTS`
-
-Secrets guide: [docs/SECRETS.md](docs/SECRETS.md) · [SECURITY.md](SECURITY.md)
-
----
-
-## API
-
-- OpenAPI: `http://localhost:8000/openapi.json` (dev)
-- Guide: [docs/API.md](docs/API.md)
-- Postman: [docs/api/postman_collection.json](docs/api/postman_collection.json)
-- Insomnia: [docs/api/insomnia_collection.json](docs/api/insomnia_collection.json)
-
-SDK:
-
-```python
-from raginspector import RAGInspector
-
-inspector = RAGInspector(api_key="ri-...", pipeline_name="my-rag", base_url="http://localhost:8000")
-```
+| Case | File |
+|------|------|
+| Fintech hallucination cost | [docs/case-studies/01-fintech-hallucination-cost.md](docs/case-studies/01-fintech-hallucination-cost.md) |
+| Healthcare retrieval quality | [docs/case-studies/02-healthcare-retrieval-quality.md](docs/case-studies/02-healthcare-retrieval-quality.md) |
+| SaaS pre-deploy regression | [docs/case-studies/03-saas-pre-deploy-regression.md](docs/case-studies/03-saas-pre-deploy-regression.md) |
+| Ecommerce knowledge gaps | [docs/case-studies/04-ecommerce-knowledge-gaps.md](docs/case-studies/04-ecommerce-knowledge-gaps.md) |
+| Enterprise SSO / observability | [docs/case-studies/05-enterprise-sso-observability.md](docs/case-studies/05-enterprise-sso-observability.md) |
+| Legal-tech vector DB evaluation | [docs/case-studies/06-legaltech-vector-db-evaluation.md](docs/case-studies/06-legaltech-vector-db-evaluation.md) |
 
 ---
 
-## Troubleshooting
+## Roadmap & lessons
 
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- [docs/demo/TROUBLESHOOTING.md](docs/demo/TROUBLESHOOTING.md)
-- [docs/RUNBOOKS.md](docs/RUNBOOKS.md)
-- Windows notes: [docs/WINDOWS.md](docs/WINDOWS.md)
+- Execution contract: [ROADMAP.md](ROADMAP.md)
+- What shipped vs experimental: [docs/IMPLEMENTED.md](docs/IMPLEMENTED.md)
+- Prefer a deep correct core over stubby enterprise width
+- Label incomplete IdP/billing honestly — recruiters notice fakes
 
----
-
-## Performance
-
-See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and re-run [loadtests/](loadtests/).
+**Future work (highest ROI):** stabilize Windows host↔publish-port reliability docs; graduate SCIM/SAML only with real IdP tests; broaden Playwright CI against Compose; optional nightly Locust soak.
 
 ---
 
 ## FAQ
 
-See **[docs/FAQ.md](docs/FAQ.md)** (setup, architecture, security, interview talking points).
+[docs/FAQ.md](docs/FAQ.md)
 
-Quick answers:
-
-- **Billing required?** No — local free tier works without Razorpay.  
-- **Google SSO required?** No — optional when `GOOGLE_OAUTH_*` is set.  
-- **Free hosting?** Yes — Compose/VPS + Vercel/Cloudflare Pages free tiers.
+- **Billing required?** No for local free tier.  
+- **Google SSO required?** No — optional env.  
+- **GPU required?** No for NLI path (CPU); optional LLM judge via HF/Ollama.
 
 ---
 
-## Roadmap
+## Contributing
 
-See [ROADMAP.md](ROADMAP.md) and honest scope in [docs/IMPLEMENTED.md](docs/IMPLEMENTED.md).
-
----
+[CONTRIBUTING.md](CONTRIBUTING.md) · [docs/DEVELOPER.md](docs/DEVELOPER.md) · [docs/engineering/](docs/engineering/)
 
 ## License
 
@@ -250,15 +238,8 @@ See [ROADMAP.md](ROADMAP.md) and honest scope in [docs/IMPLEMENTED.md](docs/IMPL
 
 ---
 
-## Contributing
+## Hiring / verification
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [docs/DEVELOPER.md](docs/DEVELOPER.md) · [docs/engineering/](docs/engineering/) · ADRs: [docs/adr/](docs/adr/)
+**Canonical freeze package:** [ENGINEERING_EVIDENCE_PACKAGE.md](ENGINEERING_EVIDENCE_PACKAGE.md)
 
----
-
-## Case studies & demos
-
-- [docs/case-studies/](docs/case-studies/) (5 enterprise narratives)
-- [docs/demo/](docs/demo/)
-- Hiring notes: [docs/HIRING.md](docs/HIRING.md) · Scorecard: [docs/HIRING_SIGNAL.md](docs/HIRING_SIGNAL.md)
-- Audits: [ENTERPRISE_AUDIT_REPORT.md](ENTERPRISE_AUDIT_REPORT.md) · [FINAL_ENGINEERING_REPORT.md](FINAL_ENGINEERING_REPORT.md)
+Also: [VERIFIED_PERFORMANCE_REPORT.md](VERIFIED_PERFORMANCE_REPORT.md) · [HIRING_VERIFICATION_REPORT.md](HIRING_VERIFICATION_REPORT.md) · [docs/HIRING_SIGNAL.md](docs/HIRING_SIGNAL.md) · [docs/demo/](docs/demo/)
