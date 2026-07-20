@@ -18,9 +18,12 @@ def normalize_database_urls(
     """Normalize managed-Postgres URLs for async SQLAlchemy + sync Alembic/Celery.
 
     Cloud providers (Render, Railway, Neon, …) typically inject ``postgresql://``
-    (or ``postgres://``) without the asyncpg driver prefix. Production hosts
-    usually require TLS — we append ``ssl=require`` / ``sslmode=require`` when
-    missing and the host is not loopback.
+    (or ``postgres://``) without the asyncpg driver prefix. Managed hosts usually
+    require TLS.
+
+    Important: asyncpg (via SQLAlchemy) rejects libpq ``sslmode=`` query kwargs
+    (``TypeError``). We strip those from the async URL and use ``ssl=true`` instead.
+    Sync URLs keep ``sslmode=require`` for psycopg/libpq.
     """
 
     def _strip_driver(url: str) -> str:
@@ -35,21 +38,21 @@ def normalize_database_urls(
                 return "postgresql://" + url[len(prefix) :]
         return url
 
-    def _with_query(url: str, **params: str) -> str:
+    def _with_query(url: str, *, drop: set[str] | None = None, **params: str) -> str:
         parsed = urlparse(url)
         query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        for key in drop or ():
+            query.pop(key, None)
         for key, value in params.items():
-            query.setdefault(key, value)
+            query[key] = value
         return urlunparse(parsed._replace(query=urlencode(query)))
 
     def _needs_cloud_ssl(url: str) -> bool:
         host = (urlparse(url).hostname or "").lower()
         if host in {"localhost", "127.0.0.1", "db", "postgres"}:
             return False
-        # Production always requires TLS off-box.
         if environment.lower() == "production":
             return True
-        # Managed hosts need TLS even when ENVIRONMENT=development (Render External URL).
         cloud_markers = (
             ".render.com",
             ".neon.tech",
@@ -64,10 +67,26 @@ def normalize_database_urls(
     base_async = _strip_driver(database_url)
     base_sync = _strip_driver(database_sync_url or database_url)
 
+    # Always drop libpq-only params from the async URL — asyncpg TypeErrors on them.
+    _async_drop = {
+        "sslmode",
+        "sslrootcert",
+        "sslcert",
+        "sslkey",
+        "channel_binding",
+        "gssencmode",
+    }
+    base_async = _with_query(base_async, drop=_async_drop)
+
     if _needs_cloud_ssl(base_async):
-        base_async = _with_query(base_async, ssl="require")
+        # asyncpg: use ssl=true (not sslmode)
+        base_async = _with_query(base_async, drop=_async_drop, ssl="true")
     if _needs_cloud_ssl(base_sync):
-        base_sync = _with_query(base_sync, sslmode="require")
+        base_sync = _with_query(
+            base_sync,
+            drop={"ssl", "channel_binding"},
+            sslmode="require",
+        )
 
     async_url = "postgresql+asyncpg://" + base_async[len("postgresql://") :]
     sync_url = base_sync
