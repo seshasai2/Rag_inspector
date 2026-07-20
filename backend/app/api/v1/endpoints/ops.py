@@ -49,7 +49,9 @@ async def readiness(db: AsyncSession = Depends(get_db)):
         await db.execute(text("SELECT 1"))
         checks["database"] = "ok"
     except Exception as exc:
-        checks["database"] = f"error: {exc.__class__.__name__}"
+        # Include a short message so cloud misconfig (sslmode/asyncpg) is diagnosable.
+        detail = str(exc).replace("\n", " ")[:160]
+        checks["database"] = f"error: {exc.__class__.__name__}: {detail}"
 
     try:
         redis_client = Redis.from_url(
@@ -63,7 +65,8 @@ async def readiness(db: AsyncSession = Depends(get_db)):
         finally:
             redis_client.close()
     except Exception as exc:
-        checks["redis"] = f"error: {exc.__class__.__name__}"
+        detail = str(exc).replace("\n", " ")[:120]
+        checks["redis"] = f"error: {exc.__class__.__name__}: {detail}"
 
     # Soft: alembic version present (schema applied)
     try:
@@ -71,8 +74,8 @@ async def readiness(db: AsyncSession = Depends(get_db)):
         version = result.scalar_one_or_none()
         soft["migrations"] = f"ok:{version}" if version else "missing"
     except Exception as exc:
-        soft["migrations"] = f"error: {exc.__class__.__name__}"
-
+        detail = str(exc).replace("\n", " ")[:120]
+        soft["migrations"] = f"error: {exc.__class__.__name__}: {detail}"
     # Soft: analysis backlog snapshot (also exercises Redis broker when Celery is used)
     try:
         snapshot = await collect_backlog_snapshot(db)

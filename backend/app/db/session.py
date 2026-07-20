@@ -1,4 +1,6 @@
 import os
+import ssl
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import structlog
 from sqlalchemy import create_engine
@@ -44,6 +46,30 @@ def should_use_sqlite() -> bool:
     return True
 
 
+def _strip_asyncpg_incompatible_query(url: str) -> str:
+    """Remove libpq query params that SQLAlchemy forwards as asyncpg kwargs (TypeError)."""
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    for key in (
+        "ssl",
+        "sslmode",
+        "sslrootcert",
+        "sslcert",
+        "sslkey",
+        "channel_binding",
+        "gssencmode",
+    ):
+        query.pop(key, None)
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _needs_tls(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    if host in {"localhost", "127.0.0.1", "db", "postgres"}:
+        return False
+    return True
+
+
 if should_use_sqlite():
     sqlite_async_url = "sqlite+aiosqlite:///./raginspector.db"
     sqlite_sync_url = "sqlite:///./raginspector.db"
@@ -60,12 +86,19 @@ if should_use_sqlite():
         connect_args={"check_same_thread": False},
     )
 else:
+    async_url = _strip_asyncpg_incompatible_query(settings.DATABASE_URL)
+    async_connect_args: dict = {}
+    if _needs_tls(async_url):
+        # Neon / Render External: pass SSL via connect_args (not URL query).
+        async_connect_args["ssl"] = ssl.create_default_context()
+
     engine = create_async_engine(
-        settings.DATABASE_URL,
+        async_url,
         echo=settings.ENVIRONMENT == "development",
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        pool_size=5,
+        max_overflow=10,
+        connect_args=async_connect_args,
     )
 
     sync_engine = create_engine(

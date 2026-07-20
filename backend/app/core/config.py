@@ -68,7 +68,9 @@ def normalize_database_urls(
     base_sync = _strip_driver(database_sync_url or database_url)
 
     # Always drop libpq-only params from the async URL — asyncpg TypeErrors on them.
+    # TLS for async is applied in app.db.session via connect_args={"ssl": ...}.
     _async_drop = {
+        "ssl",
         "sslmode",
         "sslrootcert",
         "sslcert",
@@ -78,9 +80,6 @@ def normalize_database_urls(
     }
     base_async = _with_query(base_async, drop=_async_drop)
 
-    if _needs_cloud_ssl(base_async):
-        # asyncpg: use ssl=true (not sslmode)
-        base_async = _with_query(base_async, drop=_async_drop, ssl="true")
     if _needs_cloud_ssl(base_sync):
         base_sync = _with_query(
             base_sync,
