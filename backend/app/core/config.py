@@ -43,10 +43,23 @@ def normalize_database_urls(
         return urlunparse(parsed._replace(query=urlencode(query)))
 
     def _needs_cloud_ssl(url: str) -> bool:
-        if environment.lower() != "production":
-            return False
         host = (urlparse(url).hostname or "").lower()
-        return host not in {"localhost", "127.0.0.1", "db", "postgres"}
+        if host in {"localhost", "127.0.0.1", "db", "postgres"}:
+            return False
+        # Production always requires TLS off-box.
+        if environment.lower() == "production":
+            return True
+        # Managed hosts need TLS even when ENVIRONMENT=development (Render External URL).
+        cloud_markers = (
+            ".render.com",
+            ".neon.tech",
+            ".supabase.co",
+            ".amazonaws.com",
+            ".railway.app",
+            ".upstash.io",
+            ".aivencloud.com",
+        )
+        return any(host.endswith(m) for m in cloud_markers) or host.startswith("dpg-")
 
     base_async = _strip_driver(database_url)
     base_sync = _strip_driver(database_sync_url or database_url)

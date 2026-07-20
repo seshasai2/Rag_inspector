@@ -26,15 +26,14 @@ def test_postgres_scheme_alias():
     assert sync_url.startswith("postgresql://")
 
 
-def test_local_dev_skips_ssl_and_keeps_loopback():
+def test_render_external_url_gets_ssl_even_in_development():
     async_url, sync_url = normalize_database_urls(
-        "postgresql+asyncpg://raginspector:raginspector_secret@localhost:5432/raginspector",
-        "postgresql://raginspector:raginspector_secret@localhost:5432/raginspector",
+        "postgresql://u:p@dpg-abc-a.oregon-postgres.render.com/raginspector",
+        "postgresql://u:p@dpg-abc-a.oregon-postgres.render.com/raginspector",
         environment="development",
     )
-    assert "ssl=" not in async_url
-    assert "sslmode=" not in sync_url
-    assert "localhost" in async_url
+    assert "ssl=require" in async_url
+    assert "sslmode=require" in sync_url
 
 
 def test_compose_service_hostname_skips_ssl_in_production():
