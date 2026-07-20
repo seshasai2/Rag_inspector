@@ -35,15 +35,24 @@ async def experimental_surfaces(_: None = Depends(require_ops_token)):
     }
 
 
+def _redis_optional_for_seed_demo() -> bool:
+    """Interview/free-cloud seed demos run without Redis (ENVIRONMENT=development)."""
+    url = (settings.REDIS_URL or "").strip().lower()
+    if settings.ENVIRONMENT != "development":
+        return False
+    return (not url) or ("localhost" in url) or ("127.0.0.1" in url)
+
+
 @router.get("/ready")
 async def readiness(db: AsyncSession = Depends(get_db)):
-    """Readiness probe — HTTP 503 when DB or Redis is down (Compose/K8s healthchecks).
+    """Readiness probe — HTTP 503 when hard deps fail.
 
-    Soft checks (workers/backlog/migrations) are reported but do not fail the probe
-    unless hard deps (database, redis) fail.
+    Soft checks (workers/backlog/migrations) are reported but do not fail the probe.
+    Redis is optional in development when REDIS_URL is unset/localhost (seed UI demo).
     """
     checks: dict[str, str] = {"database": "unknown", "redis": "unknown"}
     soft: dict[str, str] = {}
+    redis_optional = _redis_optional_for_seed_demo()
 
     try:
         await db.execute(text("SELECT 1"))
@@ -66,7 +75,11 @@ async def readiness(db: AsyncSession = Depends(get_db)):
             redis_client.close()
     except Exception as exc:
         detail = str(exc).replace("\n", " ")[:120]
-        checks["redis"] = f"error: {exc.__class__.__name__}: {detail}"
+        if redis_optional:
+            checks["redis"] = "skipped"
+            soft["redis"] = f"optional: {exc.__class__.__name__}: {detail}"
+        else:
+            checks["redis"] = f"error: {exc.__class__.__name__}: {detail}"
 
     # Soft: alembic version present (schema applied)
     try:
@@ -89,7 +102,7 @@ async def readiness(db: AsyncSession = Depends(get_db)):
     except Exception as exc:
         soft["analysis_backlog"] = f"error: {exc.__class__.__name__}"
 
-    healthy = all(value == "ok" for value in checks.values())
+    healthy = all(value in {"ok", "skipped"} for value in checks.values())
     body = {
         "status": "ready" if healthy else "degraded",
         "checks": checks,
