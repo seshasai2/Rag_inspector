@@ -44,10 +44,13 @@ async def test_ops_ready_reports_redis_ok_when_available(client: AsyncClient, re
 
 @pytest.mark.asyncio
 async def test_ops_ready_degraded_when_redis_down(client: AsyncClient):
-    """Force Redis failure and expect degraded readiness (DB may still be ok)."""
-    with patch(
-        "app.api.v1.endpoints.ops.Redis.from_url",
-        side_effect=ConnectionError("redis unavailable"),
+    """Force Redis failure and expect degraded readiness when Redis is required."""
+    with (
+        patch("app.api.v1.endpoints.ops._redis_optional_for_seed_demo", return_value=False),
+        patch(
+            "app.api.v1.endpoints.ops.Redis.from_url",
+            side_effect=ConnectionError("redis unavailable"),
+        ),
     ):
         resp = await client.get("/api/v1/ops/ready")
 
