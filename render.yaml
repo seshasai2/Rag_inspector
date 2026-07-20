@@ -1,21 +1,16 @@
-# Render Blueprint — free portfolio deploy (API + Postgres only).
-# Repo: https://github.com/sesh813/Rag_inspector
-# Docs: docs/DEPLOYMENT.md
+# Render Blueprint — free portfolio deploy (web service only).
+# Repo: https://github.com/seshasai2/Rag_inspector
 #
-# 1. Create free Redis (Upstash) and paste REDIS_URL below after first apply.
-# 2. Apply Blueprint from Render dashboard (link this GitHub repo).
-# 3. Deploy Vercel frontend (Root Directory: frontend).
-# 4. Set FRONTEND_URL to your Vercel HTTPS URL and redeploy the API.
+# Free Render allows only ONE Postgres. This blueprint does NOT create a database.
+# Provide DATABASE_URL + DATABASE_SYNC_URL from either:
+#   A) Your existing Render Postgres (Dashboard → that DB → Connections → External)
+#   B) Free Neon: https://console.neon.tech  (connection string)
 #
-# Seed demo (Render Shell on the web service):
-#   python scripts/seed_demo.py
+# Also required: REDIS_URL from Upstash (https://console.upstash.com)
+#
+# After deploy, set FRONTEND_URL to your Vercel HTTPS URL and redeploy.
+# Seed: Render Shell → python scripts/seed_demo.py
 # Login: demo@example.com / DemoPass123!
-
-databases:
-  - name: raginspector-db
-    plan: free
-    databaseName: raginspector
-    user: raginspector
 
 services:
   - type: web
@@ -41,20 +36,17 @@ services:
         generateValue: true
       - key: OPS_SHARED_TOKEN
         generateValue: true
-      # Temporary until Vercel URL exists — update after frontend deploy
+      # Update after Vercel deploy
       - key: FRONTEND_URL
         value: https://raginspector.vercel.app
       - key: ALLOWED_HOSTS
         value: raginspector-api.onrender.com
+      # Paste from existing Render Postgres OR Neon (External URL)
       - key: DATABASE_URL
-        fromDatabase:
-          name: raginspector-db
-          property: connectionString
+        sync: false
       - key: DATABASE_SYNC_URL
-        fromDatabase:
-          name: raginspector-db
-          property: connectionString
-      # REQUIRED — create at https://upstash.com (free Redis) and paste redis:// or rediss:// URL
+        sync: false
+      # Paste from Upstash
       - key: REDIS_URL
         sync: false
       - key: HF_API_TOKEN
