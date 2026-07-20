@@ -1,0 +1,21 @@
+# Interview / low-RAM overlay for local demos.
+# Prefer with verify-ports on Windows when 3000/5432/80 are busy:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.verify-ports.yml -f docker-compose.interview.yml up -d
+#
+# Goals:
+# - Keep Postgres + Redis + API + UI + worker + beat
+# - Reduce Celery ML RAM pressure (concurrency=1, no warm-on-start)
+# - Leave observability / TLS / prod overlays optional
+#
+# Demo seed works without live ML: `docker compose run --rm backend python scripts/seed_demo.py`
+
+services:
+  celery_worker:
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 -Q analysis,celery
+    environment:
+      WARM_ML_MODELS_ON_WORKER_START: "false"
+      ANALYSIS_SOFT_TIME_LIMIT_SECONDS: "600"
+      ANALYSIS_HARD_TIME_LIMIT_SECONDS: "720"
+    healthcheck:
+      start_period: 120s

@@ -79,6 +79,8 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_FROM=${SMTP_FROM:-noreply@raginspector.com}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - UVICORN_WORKERS=${UVICORN_WORKERS:-2}
+      - PORT=8000
     ports:
       - "8000:8000"
     logging: *default-logging
@@ -104,6 +106,7 @@ services:
     container_name: raginspector_worker
     restart: unless-stopped
     # Consume analysis + default celery queues; keep concurrency low (ML RAM). See docs/WORKER.md
+    # Low-RAM / interview hosts: use docker-compose.interview.yml (concurrency=1, warm=false).
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 -Q analysis,celery
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-raginspector}:${POSTGRES_PASSWORD:-raginspector_secret}@db:5432/${POSTGRES_DB:-raginspector}
@@ -114,6 +117,9 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
       - HF_API_TOKEN=${HF_API_TOKEN}
       - HF_MODEL=${HF_MODEL:-HuggingFaceH4/zephyr-7b-beta}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-all-MiniLM-L6-v2}
+      - NLI_MODEL_NAME=${NLI_MODEL_NAME:-cross-encoder/nli-deberta-v3-small}
+      - WARM_ML_MODELS_ON_WORKER_START=${WARM_ML_MODELS_ON_WORKER_START:-true}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - SENTRY_DSN=${SENTRY_DSN:-}
       - RESEND_API_KEY=${RESEND_API_KEY}

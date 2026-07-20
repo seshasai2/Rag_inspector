@@ -15,5 +15,7 @@ venv
 Dockerfile
 .dockerignore
 tests
-scripts
+# Keep start_*.sh + seed_demo.py in the image (cloud / Render). Ignore test helpers only.
+scripts/__pycache__
+scripts/run_critical_coverage.sh
 *.egg-info

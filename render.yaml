@@ -1,0 +1,154 @@
+# Render Blueprint — free-cloud friendly portfolio deploy.
+# Docs: docs/DEPLOYMENT.md
+#
+# Deploy: connect this repo in Render → New Blueprint Instance → select this file.
+# After first deploy, set FRONTEND_URL / ALLOWED_HOSTS to your Vercel URL and
+# NEXT_PUBLIC_API_URL on Vercel to this API URL, then redeploy both.
+#
+# Notes:
+# - Web health check uses /live (not /api/v1/ops/ready) so Redis blips do not kill the API.
+# - Worker ML needs RAM; free/starter workers often OOM. Seed demo works without a worker.
+# - Redis: use Render Key Value or Upstash; paste REDIS_URL into all backend services.
+# - Convert Render Postgres URL: postgresql:// → postgresql+asyncpg:// and add ?ssl=require
+
+databases:
+  - name: raginspector-db
+    plan: free
+    databaseName: raginspector
+    user: raginspector
+
+services:
+  - type: web
+    name: raginspector-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /live
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: UVICORN_WORKERS
+        value: "1"
+      - key: RUN_MIGRATIONS
+        value: "1"
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"
+      - key: WARM_ML_MODELS_ON_WORKER_START
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OPS_SHARED_TOKEN
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: raginspector-db
+          property: connectionString
+      - key: DATABASE_SYNC_URL
+        fromDatabase:
+          name: raginspector-db
+          property: connectionString
+      # Set after creating Redis / Upstash (required for production validation + /ready):
+      - key: REDIS_URL
+        sync: false
+      # Set to https://<your-vercel-app>.vercel.app (no trailing slash):
+      - key: FRONTEND_URL
+        sync: false
+      # Set to your Render API hostname, e.g. raginspector-api.onrender.com:
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: HF_API_TOKEN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+
+  # Optional — enable when you have Redis + enough RAM for sentence-transformers.
+  - type: worker
+    name: raginspector-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    dockerCommand: sh /app/scripts/start_worker.sh
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: CELERY_CONCURRENCY
+        value: "1"
+      - key: WARM_ML_MODELS_ON_WORKER_START
+        value: "false"
+      - key: SECRET_KEY
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: SECRET_KEY
+      - key: OPS_SHARED_TOKEN
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: OPS_SHARED_TOKEN
+      - key: DATABASE_URL
+        fromDatabase:
+          name: raginspector-db
+          property: connectionString
+      - key: DATABASE_SYNC_URL
+        fromDatabase:
+          name: raginspector-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: FRONTEND_URL
+      - key: ALLOWED_HOSTS
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: ALLOWED_HOSTS
+
+  # Optional — single replica only. Schedules monitoring probes / reports.
+  - type: worker
+    name: raginspector-beat
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    dockerCommand: sh /app/scripts/start_beat.sh
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: SECRET_KEY
+      - key: OPS_SHARED_TOKEN
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: OPS_SHARED_TOKEN
+      - key: DATABASE_URL
+        fromDatabase:
+          name: raginspector-db
+          property: connectionString
+      - key: DATABASE_SYNC_URL
+        fromDatabase:
+          name: raginspector-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: FRONTEND_URL
+      - key: ALLOWED_HOSTS
+        fromService:
+          name: raginspector-api
+          type: web
+          envVarKey: ALLOWED_HOSTS

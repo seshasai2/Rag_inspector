@@ -93,6 +93,12 @@ docker compose -f docker-compose.yml -f docker-compose.verify-ports.yml run --rm
 Login: **demo@example.com** / **DemoPass123!**  
 API docs (dev): `/docs` · `/redoc`
 
+**Interview / hiring demo:** use the low-RAM overlay and full validation guide — [docs/INTERVIEW_DEPLOYMENT.md](docs/INTERVIEW_DEPLOYMENT.md) (`docker-compose.interview.yml`).
+
+**Free cloud (portfolio):** Vercel frontend + Render API/Postgres — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (`render.yaml`, `frontend/vercel.json`).
+
+**What keys do I need?** [API_KEYS_GUIDE.md](API_KEYS_GUIDE.md) — required vs optional, verified from source.
+
 ---
 
 ## Tech stack

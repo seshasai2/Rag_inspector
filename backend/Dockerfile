@@ -53,14 +53,20 @@ ENV PATH="/opt/venv/bin:$PATH" \
 # - Prefer read-only root filesystem in K8s with emptyDir mounts for /tmp and cache
 
 COPY --chown=app:app . .
-RUN chmod +x /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh \
+    /app/scripts/start_api.sh \
+    /app/scripts/start_worker.sh \
+    /app/scripts/start_beat.sh
 
 USER app
 EXPOSE 8000
 
+# Container-local probe (Compose). Cloud platforms should use GET /live on $PORT instead.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
   CMD curl -fsS http://127.0.0.1:8000/live >/dev/null || exit 1
 
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker-entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# start_api.sh reads PORT (Render/Railway/Fly) and UVICORN_WORKERS (default 1 for free tiers).
+# Invoke via sh so Windows bind-mounts without +x still work.
+CMD ["sh", "/app/scripts/start_api.sh"]

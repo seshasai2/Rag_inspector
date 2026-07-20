@@ -3,9 +3,62 @@ RAGInspector configuration.
 """
 
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_database_urls(
+    database_url: str,
+    database_sync_url: str,
+    *,
+    environment: str = "development",
+) -> tuple[str, str]:
+    """Normalize managed-Postgres URLs for async SQLAlchemy + sync Alembic/Celery.
+
+    Cloud providers (Render, Railway, Neon, …) typically inject ``postgresql://``
+    (or ``postgres://``) without the asyncpg driver prefix. Production hosts
+    usually require TLS — we append ``ssl=require`` / ``sslmode=require`` when
+    missing and the host is not loopback.
+    """
+
+    def _strip_driver(url: str) -> str:
+        for prefix in (
+            "postgresql+asyncpg://",
+            "postgresql+psycopg2://",
+            "postgresql+psycopg://",
+            "postgres://",
+            "postgresql://",
+        ):
+            if url.startswith(prefix):
+                return "postgresql://" + url[len(prefix) :]
+        return url
+
+    def _with_query(url: str, **params: str) -> str:
+        parsed = urlparse(url)
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        for key, value in params.items():
+            query.setdefault(key, value)
+        return urlunparse(parsed._replace(query=urlencode(query)))
+
+    def _needs_cloud_ssl(url: str) -> bool:
+        if environment.lower() != "production":
+            return False
+        host = (urlparse(url).hostname or "").lower()
+        return host not in {"localhost", "127.0.0.1", "db", "postgres"}
+
+    base_async = _strip_driver(database_url)
+    base_sync = _strip_driver(database_sync_url or database_url)
+
+    if _needs_cloud_ssl(base_async):
+        base_async = _with_query(base_async, ssl="require")
+    if _needs_cloud_ssl(base_sync):
+        base_sync = _with_query(base_sync, sslmode="require")
+
+    async_url = "postgresql+asyncpg://" + base_async[len("postgresql://") :]
+    sync_url = base_sync
+    return async_url, sync_url
 
 
 class Settings(BaseSettings):
@@ -107,6 +160,17 @@ class Settings(BaseSettings):
     STARTER_TRACES_PER_MONTH: int = 10000
     PRO_TRACES_PER_MONTH: int = 100000
     ENTERPRISE_TRACES_PER_MONTH: int = 999999999
+
+    @model_validator(mode="after")
+    def _normalize_database_urls(self) -> "Settings":
+        async_url, sync_url = normalize_database_urls(
+            self.DATABASE_URL,
+            self.DATABASE_SYNC_URL,
+            environment=self.ENVIRONMENT,
+        )
+        object.__setattr__(self, "DATABASE_URL", async_url)
+        object.__setattr__(self, "DATABASE_SYNC_URL", sync_url)
+        return self
 
     @model_validator(mode="after")
     def _resolve_email_verification_gate(self) -> "Settings":
