@@ -1,14 +1,16 @@
-# Render Blueprint — free portfolio deploy (web service only).
+# Render Blueprint — free portfolio deploy (no Render Postgres, no Upstash required).
 # Repo: https://github.com/seshasai2/Rag_inspector
 #
-# Free Render allows only ONE Postgres. This blueprint does NOT create a database.
-# Provide DATABASE_URL + DATABASE_SYNC_URL from either:
-#   A) Your existing Render Postgres (Dashboard → that DB → Connections → External)
-#   B) Free Neon: https://console.neon.tech  (connection string)
+# Free-tier constraints this file assumes:
+# - You already used your 1 free Render Postgres → paste its External URL below
+# - Upstash unavailable → this deploy runs WITHOUT Redis (seed UI demo only)
 #
-# Also required: REDIS_URL from Upstash (https://console.upstash.com)
+# ENVIRONMENT=development skips production Redis fail-closed checks.
+# Health check is /live (works without Redis). Live Celery analysis needs Redis later.
 #
-# After deploy, set FRONTEND_URL to your Vercel HTTPS URL and redeploy.
+# Optional Redis later (free Redis Cloud): https://redis.io/try-free/
+# Then set REDIS_URL and ENVIRONMENT=production, FRONTEND_URL=https://your.vercel.app
+#
 # Seed: Render Shell → python scripts/seed_demo.py
 # Login: demo@example.com / DemoPass123!
 
@@ -22,8 +24,9 @@ services:
     region: oregon
     healthCheckPath: /live
     envVars:
+      # development = portfolio/interview without Redis/SaaS keys
       - key: ENVIRONMENT
-        value: production
+        value: development
       - key: UVICORN_WORKERS
         value: "1"
       - key: RUN_MIGRATIONS
@@ -36,17 +39,17 @@ services:
         generateValue: true
       - key: OPS_SHARED_TOKEN
         generateValue: true
-      # Update after Vercel deploy
+      # Update to your real Vercel URL after frontend deploy (CORS)
       - key: FRONTEND_URL
         value: https://raginspector.vercel.app
       - key: ALLOWED_HOSTS
-        value: raginspector-api.onrender.com
-      # Paste from existing Render Postgres OR Neon (External URL)
+        value: raginspector-api.onrender.com,localhost,127.0.0.1
+      # REQUIRED — existing Render Postgres External URL (or Neon)
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SYNC_URL
         sync: false
-      # Paste from Upstash
+      # Leave empty for seed-only demo (no Upstash). Optional later: Redis Cloud URL
       - key: REDIS_URL
         sync: false
       - key: HF_API_TOKEN
