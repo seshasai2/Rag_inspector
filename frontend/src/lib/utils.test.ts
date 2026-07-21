@@ -31,6 +31,6 @@ describe('getApiErrorMessage', () => {
   })
 
   it('handles network error message', () => {
-    expect(getApiErrorMessage({ message: 'Network Error' })).toMatch(/Network error/)
+    expect(getApiErrorMessage({ message: 'Network Error' })).toMatch(/waking up|Network error/i)
   })
 })

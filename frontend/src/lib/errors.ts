@@ -14,8 +14,10 @@ export function getApiErrorMessage(error: unknown, fallback = 'Request failed'):
   if (ax.response?.status === 403) return 'You do not have permission for this action.'
   if (ax.response?.status === 404) return 'Resource not found.'
   if (ax.response?.status && ax.response.status >= 500) {
-    return 'Server error. Retry or check system health.'
+    return 'API is waking up or unavailable. Wait a few seconds and retry.'
   }
-  if (ax.message === 'Network Error') return 'Network error. Check your connection.'
+  if (ax.message === 'Network Error' || ax.code === 'ECONNABORTED') {
+    return 'API is waking up (Render Free). Wait a few seconds and retry.'
+  }
   return fallback
 }
