@@ -35,13 +35,20 @@ services:
         value: "false"
       - key: WARM_ML_MODELS_ON_WORKER_START
         value: "false"
+      # Interview/portfolio: seed pre-analyzed demo data (no Celery/Redis needed)
+      - key: ALLOW_DEMO_SEED
+        value: "true"
+      - key: SEED_DEMO_ON_START
+        value: "1"
+      - key: SEED_DEMO_FORCE
+        value: "1"
       - key: SECRET_KEY
         generateValue: true
       - key: OPS_SHARED_TOKEN
         generateValue: true
-      # Update to your real Vercel URL after frontend deploy (CORS)
+      # Update to your real Vercel URL after frontend deploy (CORS). Comma-separated OK.
       - key: FRONTEND_URL
-        value: https://raginspector.vercel.app
+        value: https://frontend-five-omega-15.vercel.app,https://raginspector.vercel.app
       - key: ALLOWED_HOSTS
         value: raginspector-api.onrender.com,localhost,127.0.0.1
       # REQUIRED — existing Render Postgres External URL (or Neon)

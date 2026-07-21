@@ -129,6 +129,44 @@ async def analysis_backlog(
     }
 
 
+@router.post("/seed-demo")
+async def seed_demo(
+    force: bool = False,
+    x_ops_token: str | None = Header(default=None, alias="X-Ops-Token"),
+):
+    """Load interview demo user + pre-analyzed traces (no Celery/ML required).
+
+    Allowed when ``X-Ops-Token`` matches ``OPS_SHARED_TOKEN``, or when
+    ``ENVIRONMENT`` is not ``production`` (Render free/portfolio path).
+    """
+    expected = (settings.OPS_SHARED_TOKEN or "").strip()
+    token_ok = bool(expected and x_ops_token and secrets.compare_digest(x_ops_token, expected))
+    allow_open = settings.ENVIRONMENT.lower() != "production"
+    if not (token_ok or allow_open):
+        raise HTTPException(status_code=401, detail="Demo seed not permitted")
+
+    from sqlalchemy.orm import Session
+
+    from app.db.session import sync_engine
+    from app.services.demo_seed import seed_demo_data
+
+    with Session(sync_engine) as session:
+        result = seed_demo_data(session, force=force)
+
+    return {
+        "ok": True,
+        "created": result.created,
+        "message": result.message,
+        "email": result.email,
+        "password": result.password,
+        "pipeline_id": result.pipeline_id,
+        "organization_id": result.organization_id,
+        "trace_count": result.trace_count,
+        "api_key": result.api_key,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @router.get("/metrics")
 async def metrics(
     response: Response,

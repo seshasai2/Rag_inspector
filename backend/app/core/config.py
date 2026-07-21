@@ -175,6 +175,11 @@ class Settings(BaseSettings):
 
     # Optional shared secret for /api/v1/ops/backlog|experimental (X-Ops-Token)
     OPS_SHARED_TOKEN: Optional[str] = None
+    # Portfolio/free-cloud: allow POST /api/v1/ops/seed-demo without ops token
+    # when ENVIRONMENT=development. Never enable in production.
+    ALLOW_DEMO_SEED: bool = False
+    # After migrations, run demo seed once at container start (web process).
+    SEED_DEMO_ON_START: bool = False
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_RETENTION_DAYS: int = 30

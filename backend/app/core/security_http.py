@@ -40,9 +40,14 @@ def normalize_origin(url: str) -> str:
 
 
 def cors_allow_origins(*, is_production: bool, frontend_url: str) -> list[str]:
-    origin = normalize_origin(frontend_url)
+    """Build allow-list from comma-separated ``FRONTEND_URL`` (+ local extras in non-prod)."""
+    origins: list[str] = []
+    for part in (frontend_url or "").split(","):
+        origin = normalize_origin(part)
+        if origin and origin not in origins:
+            origins.append(origin)
     if is_production:
-        return [origin] if origin else []
+        return origins
     extras = [
         "http://localhost:3000",
         "http://localhost:3001",
@@ -51,8 +56,11 @@ def cors_allow_origins(*, is_production: bool, frontend_url: str) -> list[str]:
         "http://127.0.0.1:3000",
         "http://127.0.0.1:13000",
         "http://127.0.0.1:52478",
+        # Public Vercel aliases used for portfolio demos
+        "https://frontend-five-omega-15.vercel.app",
+        "https://raginspector.vercel.app",
+        "https://raginspector-seshasai2s-projects.vercel.app",
     ]
-    origins = [origin] if origin else []
     for item in extras:
         if item not in origins:
             origins.append(item)
