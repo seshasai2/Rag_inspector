@@ -1,0 +1,4 @@
+{
+  "prompt": "Answer only using the provided context. If the context is insufficient, say you do not know. Cite chunk ids.",
+  "pipeline_id": "REPLACE_WITH_DEMO_PIPELINE_ID"
+}

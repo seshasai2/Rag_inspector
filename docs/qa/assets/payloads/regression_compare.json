@@ -1,0 +1,5 @@
+{
+  "pipeline_id": "REPLACE_WITH_DEMO_PIPELINE_ID",
+  "baseline_snapshot_id": "REPLACE_BASELINE_SNAPSHOT_ID",
+  "compare_to": "REPLACE_CANDIDATE_SNAPSHOT_ID"
+}

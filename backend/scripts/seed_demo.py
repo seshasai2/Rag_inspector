@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI: seed demo user, pipeline, and sample traces.
+"""CLI: seed demo user, org, pipelines, traces, and Phase 10 assets.
 
 Usage (from backend/):
 
@@ -27,7 +27,7 @@ def main() -> int:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Refresh demo pipeline traces even if already present",
+        help="Refresh demo pipeline traces and Phase 10 assets even if already present",
     )
     args = parser.parse_args()
 
@@ -42,12 +42,14 @@ def main() -> int:
     print(result.message)
     print(f"  email:    {result.email}")
     print(f"  password: {result.password}")
+    print(f"  api_key:  {result.api_key}")
     print(f"  user_id:  {result.user_id}")
+    print(f"  org_id:   {result.organization_id}")
     print(f"  pipeline: {result.pipeline_id}")
     if result.trace_count:
         print(f"  traces:   {result.trace_count}")
     print()
-    print("Log in at the frontend, then open Dashboard / Queries / Chunks.")
+    print("Log in at the frontend, then open Dashboard / Queries / Chunks / Knowledge Gaps.")
     print(f"(Credentials are also in docs/SEED.md — {DEMO_EMAIL} / {DEMO_PASSWORD})")
     return 0
 

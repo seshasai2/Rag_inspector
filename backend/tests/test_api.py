@@ -321,4 +321,8 @@ class TestHealth:
     async def test_health(self, client: AsyncClient):
         resp = await client.get("/health")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "healthy"
+        body = resp.json()
+        assert body["status"] == "healthy"
+        assert body["service"] == "raginspector"
+        assert body["version"] == "1.0.0"
+        assert "timestamp" in body

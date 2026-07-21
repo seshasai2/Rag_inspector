@@ -4,13 +4,14 @@ Reproducible SDK demo (Phase 9.5).
 
 Prereqs:
   1. Stack up + migrations: docker compose up -d && alembic upgrade head
-  2. Seed demo (or create your own API key in Settings):
+  2. Seed demo:
        docker compose run --rm backend python scripts/seed_demo.py
-  3. Create an API key in the UI (Settings) OR set RAGINSPECTOR_API_KEY
+  3. Use the seeded API key (or create one in Settings):
+       ri-demo_interview_seed_key_000000000001
 
 Usage:
   pip install -e ./sdk
-  set RAGINSPECTOR_API_KEY=ri-...
+  set RAGINSPECTOR_API_KEY=ri-demo_interview_seed_key_000000000001
   python examples/demo_send_trace.py
 """
 from __future__ import annotations
@@ -24,7 +25,10 @@ except ImportError:
     print("Install the SDK first: pip install -e ./sdk", file=sys.stderr)
     raise SystemExit(1)
 
-API_KEY = os.environ.get("RAGINSPECTOR_API_KEY", "").strip()
+# Seeded demo key from app.services.demo_seed — override via env for non-demo use.
+API_KEY = os.environ.get(
+    "RAGINSPECTOR_API_KEY", "ri-demo_interview_seed_key_000000000001"
+).strip()
 BASE_URL = os.environ.get("RAGINSPECTOR_BASE_URL", "http://localhost:8000").rstrip("/")
 
 if not API_KEY:
@@ -37,7 +41,7 @@ if not API_KEY:
 
 inspector = RAGInspector(
     api_key=API_KEY,
-    pipeline_name=os.environ.get("RAGINSPECTOR_PIPELINE", "demo-sdk-pipeline"),
+    pipeline_name=os.environ.get("RAGINSPECTOR_PIPELINE", "Demo RAG Pipeline"),
     base_url=BASE_URL,
 )
 

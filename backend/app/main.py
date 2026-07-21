@@ -1,5 +1,6 @@
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 import structlog
 from fastapi import FastAPI, Request
@@ -164,7 +165,18 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "1.0.0"}
+    """Lightweight liveness probe — no DB, Redis, auth, or model I/O.
+
+    Used by Render health checks and the GitHub keep-alive workflow.
+    ``status`` remains ``healthy`` for backward compatibility with existing
+    monitors and tests (semantically equivalent to ``ok``).
+    """
+    return {
+        "status": "healthy",
+        "service": "raginspector",
+        "version": app.version,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @app.get("/live")

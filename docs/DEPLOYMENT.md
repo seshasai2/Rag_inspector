@@ -297,6 +297,7 @@ OpenAI / Groq / Gemini / MinIO are **not** in the live product (PRD archive only
 1. Free Render workers often **cannot** load NLI models — use seed data for demos.
 2. Vercel preview URLs need a matching `FRONTEND_URL` (single-origin CORS).
 3. Cold starts on free Render web tiers can take many seconds.
+   Mitigate with the GitHub keep-alive workflow — see [`render_keepalive.md`](render_keepalive.md).
 4. First HF model download on a worker is slow and disk-heavy.
 5. Helm/K8s path is optional and **not** required for portfolio cloud deploy.
 

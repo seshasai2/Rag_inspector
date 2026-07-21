@@ -1,6 +1,6 @@
 # Demo dataset
 
-What `make seed` / `backend/scripts/seed_demo.py` (and `app/services/demo_seed.py`) typically create for local demos. Exact row counts may vary by seed revision; treat the shapes below as the expected catalog.
+What `make seed` / `backend/scripts/seed_demo.py` creates. Source of truth: `app/services/demo_seed.py`.
 
 ## Accounts
 
@@ -8,69 +8,77 @@ What `make seed` / `backend/scripts/seed_demo.py` (and `app/services/demo_seed.p
 |-------|-------|
 | Email | `demo@example.com` |
 | Password | `DemoPass123!` |
-| Plan | Often `pro` or elevated free for demo features |
-| Org | Demo organization with owner role |
-
-Create additional users via `/auth/register` for multi-user demos.
+| Plan | `enterprise` (unlocks Phase 10 demo surfaces) |
+| Org | Acme Support Labs (`acme-support-labs`) |
+| API key | `ri-demo_interview_seed_key_000000000001` |
 
 ## Pipelines
 
-| Name (example) | Purpose |
-|----------------|---------|
-| Customer Support RAG | Primary dashboard / cost card |
+| Name | Purpose |
+|------|---------|
+| Demo RAG Pipeline | Primary dashboard / cost / Phase 10 assets |
 | Docs Assistant | Second pipeline for compare views |
 
-Fields exercised: `queries_per_month` (e.g. 10_000), `cost_per_wrong_answer_usd` (e.g. 5.0).
+Fields: `queries_per_month`, `cost_per_wrong_answer_usd`.
 
 ## Trace categories
 
-Seeded `QueryTrace` rows should cover failure types from `FailureType`:
-
-| Category | What to show |
+| Category | Failure type |
 |----------|--------------|
-| Well grounded | High faithfulness + grounded_fraction |
-| Hallucination | Answer claims not in chunks |
-| Retrieval miss | Low context recall / irrelevant top chunks |
-| Coverage gap | Partial sentence support |
-| Chunking issue | Fragmented / noisy chunks |
+| Well grounded | `none` |
+| Hallucination | `hallucination` |
+| Retrieval miss | `retrieval_miss` |
+| Coverage gap | `coverage_gap` |
 
-Each analyzed trace includes retrieved chunks with similarity and BM25 scores, and an `AnalysisJob` in `completed` (or pending if workers were down during seed).
+Each analyzed trace includes retrieved chunks (similarity + BM25), grounding sentences, and a completed `AnalysisJob`.
+
+## Phase 10 assets
+
+| Asset | Count / notes |
+|-------|----------------|
+| Knowledge gaps | 2 open (API keys, enterprise SLA) |
+| Documents | 3 (fresh / stale / critical) |
+| Monitoring | enabled config + 2 runs |
+| Regression snapshots | `baseline-v1.0`, `pre-deploy-candidate` |
+| Autofix | 2 open recommendations |
+| Reports | 1 executive history JSON |
+| SLA | trust_score_min 75 |
 
 ## Chunks
 
-- Mix of high and low citation rates for `/chunks` heatmap.
-- Flagged chunks illustrate PRD F5 quality rules (`retrieval_count` + low citation).
+- Mix of high and low citation rates for `/chunks`.
+- Flagged: `doc-onboarding-01` (high retrieval, low citation).
 
-## API keys
+## Synthetic ingest payload
 
-Seed may create a named key for the demo user. If not present, create via `POST /api/v1/keys` after login. Never commit real secrets; rotate local keys freely.
+Use `docs/qa/assets/payloads/ingest_trace.json` or:
+
+```json
+{
+  "pipeline_name": "Demo RAG Pipeline",
+  "query_text": "What is the refund policy?",
+  "answer_text": "Refunds are available within 14 days of purchase.",
+  "retrieved_chunks": [
+    {
+      "chunk_id": "doc-billing-01",
+      "chunk_text": "Annual subscriptions may be refunded in full within 14 days.",
+      "similarity_score": 0.91
+    }
+  ],
+  "embed_latency_ms": 12,
+  "retrieve_latency_ms": 45,
+  "generate_latency_ms": 320
+}
+```
+
+Header: `X-API-Key: ri-demo_interview_seed_key_000000000001`
 
 ## Re-seeding
 
 ```bash
 make seed
 # or
-cd backend && python scripts/seed_demo.py
+cd backend && python scripts/seed_demo.py --force
 ```
 
-Wipe local SQLite / Compose volumes only when intentionally resetting ([SEED.md](../SEED.md)).
-
-## Synthetic ingest payload
-
-Use the Postman **Ingest Trace** request or:
-
-```json
-{
-  "pipeline_id": "<uuid>",
-  "query": "What is the refund policy?",
-  "answer": "Refunds are available within 30 days of purchase with a receipt.",
-  "retrieved_chunks": [
-    {
-      "content": "Customers may request a full refund within 30 days of purchase when they provide a valid receipt.",
-      "similarity_score": 0.91,
-      "metadata": { "source": "policies.md" }
-    }
-  ],
-  "latency_ms": { "retrieve": 45, "generate": 320 }
-}
-```
+See [SEED.md](../SEED.md) and [qa/INTERVIEW_DEMO.md](../qa/INTERVIEW_DEMO.md).

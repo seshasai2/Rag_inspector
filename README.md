@@ -8,6 +8,8 @@ Self-host with free OSS tooling only (Docker Compose, Postgres, Redis, Celery, P
 
 **New to the repo?** Read [PROJECT_GUIDE.md](PROJECT_GUIDE.md) — canonical engineering overview (architecture, trade-offs, failure modes, interview prep).
 
+**QA / interview readiness:** [docs/qa/README.md](docs/qa/README.md) — feature inventory, manual tests, demo seed, API examples, readiness report.
+
 ![Sentence grounding (demo seed)](docs/screenshots/grounding-attribution.png)
 
 ---

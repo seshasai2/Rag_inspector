@@ -1,0 +1,118 @@
+### RAGInspector API — VS Code / JetBrains HTTP Client
+### Seed: demo@example.com / DemoPass123!
+### API key: ri-demo_interview_seed_key_000000000001
+
+@baseUrl = http://localhost:8000
+@email = demo@example.com
+@password = DemoPass123!
+@apiKey = ri-demo_interview_seed_key_000000000001
+@token = {{login.response.body.access_token}}
+@pipelineId = {{pipelines.response.body.0.id}}
+
+### Liveness
+GET {{baseUrl}}/live
+
+### Ready
+GET {{baseUrl}}/api/v1/ops/ready
+
+### Login
+# @name login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Me
+GET {{baseUrl}}/api/v1/auth/me
+Authorization: Bearer {{token}}
+
+### Pipelines
+# @name pipelines
+GET {{baseUrl}}/api/v1/pipelines
+Authorization: Bearer {{token}}
+
+### Dashboard metrics
+GET {{baseUrl}}/api/v1/metrics/dashboard
+Authorization: Bearer {{token}}
+
+### Queries
+GET {{baseUrl}}/api/v1/queries?page=1&per_page=20
+Authorization: Bearer {{token}}
+
+### Knowledge gaps
+GET {{baseUrl}}/api/v1/knowledge/gaps
+Authorization: Bearer {{token}}
+
+### Autofix recommendations
+GET {{baseUrl}}/api/v1/autofix/recommendations
+Authorization: Bearer {{token}}
+
+### Documents
+GET {{baseUrl}}/api/v1/documents
+Authorization: Bearer {{token}}
+
+### Documents freshness
+GET {{baseUrl}}/api/v1/documents/freshness
+Authorization: Bearer {{token}}
+
+### Monitoring config
+GET {{baseUrl}}/api/v1/monitoring/config/{{pipelineId}}
+Authorization: Bearer {{token}}
+
+### Monitoring history
+GET {{baseUrl}}/api/v1/monitoring/history/{{pipelineId}}
+Authorization: Bearer {{token}}
+
+### Regression snapshots
+GET {{baseUrl}}/api/v1/regression/snapshots/{{pipelineId}}
+Authorization: Bearer {{token}}
+
+### Ingest trace (API key)
+POST {{baseUrl}}/api/v1/ingest/trace
+Content-Type: application/json
+X-API-Key: {{apiKey}}
+
+{
+  "pipeline_name": "Demo RAG Pipeline",
+  "query_text": "What is the refund window for annual plans?",
+  "answer_text": "Annual plans can be refunded within 14 days of purchase.",
+  "retrieved_chunks": [
+    {
+      "chunk_id": "doc-billing-01",
+      "chunk_text": "Annual subscriptions may be refunded in full within 14 days of the original purchase date.",
+      "similarity_score": 0.91
+    }
+  ],
+  "embed_latency_ms": 12,
+  "retrieve_latency_ms": 45,
+  "generate_latency_ms": 320
+}
+
+### Investigator
+POST {{baseUrl}}/api/v1/investigator/ask
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "question": "What is our current trust score?"
+}
+
+### Reports history
+GET {{baseUrl}}/api/v1/reports/history
+Authorization: Bearer {{token}}
+
+### Organization current
+GET {{baseUrl}}/api/v1/organizations/current
+Authorization: Bearer {{token}}
+
+### Invalid login (expect 401)
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "wrong-password"
+}

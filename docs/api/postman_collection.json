@@ -275,7 +275,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pipeline_id\": \"{{pipelineId}}\",\n  \"query\": \"What is the refund policy?\",\n  \"answer\": \"Refunds are available within 30 days of purchase with a receipt.\",\n  \"retrieved_chunks\": [\n    {\n      \"content\": \"Customers may request a full refund within 30 days of purchase when they provide a valid receipt.\",\n      \"similarity_score\": 0.91,\n      \"metadata\": { \"source\": \"policies.md\" }\n    },\n    {\n      \"content\": \"Shipping usually takes 3–5 business days.\",\n      \"similarity_score\": 0.41,\n      \"metadata\": { \"source\": \"shipping.md\" }\n    }\n  ],\n  \"latency_ms\": {\n    \"retrieve\": 45,\n    \"generate\": 320\n  }\n}"
+              "raw": "{\n  \"pipeline_name\": \"Demo RAG Pipeline\",\n  \"query_text\": \"What is the refund policy?\",\n  \"answer_text\": \"Refunds are available within 30 days of purchase with a receipt.\",\n  \"retrieved_chunks\": [\n    {\n      \"chunk_id\": \"doc-policies-01\",\n      \"chunk_text\": \"Customers may request a full refund within 30 days of purchase when they provide a valid receipt.\",\n      \"similarity_score\": 0.91,\n      \"metadata\": { \"source\": \"policies.md\" }\n    },\n    {\n      \"chunk_id\": \"doc-shipping-01\",\n      \"chunk_text\": \"Shipping usually takes 3–5 business days.\",\n      \"similarity_score\": 0.41,\n      \"metadata\": { \"source\": \"shipping.md\" }\n    }\n  ],\n  \"retrieve_latency_ms\": 45,\n  \"generate_latency_ms\": 320\n}"
             },
             "url": "{{baseUrl}}/api/v1/ingest/trace"
           }
@@ -381,6 +381,113 @@
               { "key": "Authorization", "value": "Bearer {{accessToken}}" }
             ],
             "url": "{{baseUrl}}/api/v1/metrics/latency-breakdown"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase10",
+      "item": [
+        {
+          "name": "Knowledge Gaps",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/knowledge/gaps"
+          }
+        },
+        {
+          "name": "Autofix Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/autofix/recommendations"
+          }
+        },
+        {
+          "name": "Documents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/documents"
+          }
+        },
+        {
+          "name": "Documents Freshness",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/documents/freshness"
+          }
+        },
+        {
+          "name": "Monitoring Config",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/monitoring/config/{{pipelineId}}"
+          }
+        },
+        {
+          "name": "Monitoring History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/monitoring/history/{{pipelineId}}"
+          }
+        },
+        {
+          "name": "Regression Snapshots",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/regression/snapshots/{{pipelineId}}"
+          }
+        },
+        {
+          "name": "Investigator Ask",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is our current trust score?\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/investigator/ask"
+          }
+        },
+        {
+          "name": "Reports History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/reports/history"
+          }
+        },
+        {
+          "name": "Organization Current",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/organizations/current"
+          }
+        },
+        {
+          "name": "Ingest with Seeded Demo Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "ri-demo_interview_seed_key_000000000001" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pipeline_name\": \"Demo RAG Pipeline\",\n  \"query_text\": \"What is the refund window for annual plans?\",\n  \"answer_text\": \"Annual plans can be refunded within 14 days of purchase.\",\n  \"retrieved_chunks\": [\n    {\n      \"chunk_id\": \"doc-billing-01\",\n      \"chunk_text\": \"Annual subscriptions may be refunded in full within 14 days of the original purchase date.\",\n      \"similarity_score\": 0.91\n    }\n  ],\n  \"embed_latency_ms\": 12,\n  \"retrieve_latency_ms\": 45,\n  \"generate_latency_ms\": 320\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/ingest/trace"
           }
         }
       ]

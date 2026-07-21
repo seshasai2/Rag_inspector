@@ -37,7 +37,13 @@ def test_live_alias_matches_health():
     from app.main import app
 
     client = TestClient(app)
-    assert client.get("/live").json() == client.get("/health").json()
+    live = client.get("/live").json()
+    health = client.get("/health").json()
+    # Timestamp is generated per request — compare stable liveness fields only.
+    assert live["status"] == health["status"] == "healthy"
+    assert live["service"] == health["service"] == "raginspector"
+    assert live["version"] == health["version"]
+    assert "timestamp" in live and "timestamp" in health
 
 
 def test_enqueue_passes_request_id_header():
