@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_min_plan
 from app.core.plan_gate import FEATURE_MIN_PLAN
-from app.db.session import get_db, should_use_sqlite
+from app.db.session import get_db
 from app.models.models import Pipeline, QueryTrace, User
 from app.services.bm25_metrics import build_bm25_aggregate
 from app.services.dashboard_cache import (
@@ -23,12 +23,6 @@ from app.services.dashboard_cache import (
 router = APIRouter()
 
 _BM25_PLAN = FEATURE_MIN_PLAN["bm25_comparison"]
-
-
-def day_trunc(column):
-    if should_use_sqlite():
-        return func.strftime("%Y-%m-%d", column)
-    return func.date_trunc("day", column)
 
 
 def _set_cache_header(response: Response, status: str) -> None:
