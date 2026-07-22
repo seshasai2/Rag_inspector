@@ -1,13 +1,15 @@
 # Keep Render Free web service awake via periodic health pings.
 # Requires repository secret BACKEND_URL (e.g. https://your-service.onrender.com)
 # — no trailing slash. Never commit the URL with credentials.
+#
+# Render Free spins down after ~15 min idle. GitHub cron can drift, so we ping
+# every 5 minutes and retry through cold-start 502s.
 
 name: Render keep-alive
 
 on:
   schedule:
-    # Every 5 minutes — Free tier can 502 during cold start; keep-alive must be denser
-    # than the ~15 min idle spin-down. GitHub cron can also drift, so 5m is safer.
+    # Every 5 minutes (denser than the ~15 min idle spin-down).
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
@@ -22,7 +24,7 @@ jobs:
   ping:
     name: Ping /health
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - name: Require BACKEND_URL secret
         env:
@@ -31,14 +33,13 @@ jobs:
           if [ -z "${BACKEND_URL}" ]; then
             echo "::error::Repository secret BACKEND_URL is not set."
             echo "Add it under Settings → Secrets and variables → Actions."
-            echo "Example value: https://your-service.onrender.com"
+            echo "Example value: https://raginspector-api.onrender.com"
             exit 1
           fi
-          # Normalize: strip trailing slash for safe path join
           BACKEND_URL="${BACKEND_URL%/}"
           echo "BACKEND_URL=${BACKEND_URL}" >> "$GITHUB_ENV"
 
-      - name: GET /health
+      - name: Wake and confirm GET /health
         id: health
         run: |
           set -euo pipefail
@@ -46,31 +47,61 @@ jobs:
           echo "UTC time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           echo "Target:   ${URL}"
 
-          BODY_FILE="$(mktemp)"
-          HTTP_CODE="000"
-          START_NS=$(date +%s%N)
+          # Cold starts on Render Free often return 502 for 30–90s.
+          # Retry until healthy, then do a short confirm ping.
+          attempt=0
+          max_attempts=8
+          http_code="000"
+          body_file="$(mktemp)"
 
-          set +e
-          HTTP_CODE=$(curl --fail --silent --show-error \
-            --retry 3 \
-            --retry-delay 5 \
-            --max-time 30 \
-            --write-out "%{http_code}" \
-            --output "${BODY_FILE}" \
-            "${URL}")
-          CURL_EXIT=$?
-          set -e
+          while [ "${attempt}" -lt "${max_attempts}" ]; do
+            attempt=$((attempt + 1))
+            start_ns=$(date +%s%N)
+            set +e
+            http_code=$(curl --silent --show-error \
+              --retry 0 \
+              --max-time 90 \
+              --write-out "%{http_code}" \
+              --output "${body_file}" \
+              "${URL}")
+            curl_exit=$?
+            set -e
+            end_ns=$(date +%s%N)
+            elapsed_ms=$(( (end_ns - start_ns) / 1000000 ))
 
-          END_NS=$(date +%s%N)
-          ELAPSED_MS=$(( (END_NS - START_NS) / 1000000 ))
+            echo "Attempt ${attempt}/${max_attempts}: http=${http_code} curl_exit=${curl_exit} ${elapsed_ms}ms"
+            if [ "${curl_exit}" -eq 0 ] && [ "${http_code}" = "200" ]; then
+              echo "Response body:"
+              cat "${body_file}" || true
+              echo
+              break
+            fi
+            echo "Waking service (cold start / transient 502)…"
+            sleep 8
+          done
 
-          echo "Status code: ${HTTP_CODE}"
-          echo "Response time (ms): ${ELAPSED_MS}"
-          echo "Response body:"
-          cat "${BODY_FILE}" || true
-          echo
-
-          if [ "${CURL_EXIT}" -ne 0 ] || [ "${HTTP_CODE}" != "200" ]; then
-            echo "::error::Keep-alive ping failed (curl_exit=${CURL_EXIT}, http=${HTTP_CODE})"
+          if [ "${http_code}" != "200" ]; then
+            echo "::error::Keep-alive wake failed after ${max_attempts} attempts (http=${http_code})"
+            cat "${body_file}" || true
             exit 1
           fi
+
+          # Confirm the process stayed up after the wake.
+          sleep 2
+          confirm_file="$(mktemp)"
+          set +e
+          confirm_code=$(curl --silent --show-error \
+            --max-time 30 \
+            --write-out "%{http_code}" \
+            --output "${confirm_file}" \
+            "${URL}")
+          set -e
+          echo "Confirm ping: http=${confirm_code}"
+          cat "${confirm_file}" || true
+          echo
+          if [ "${confirm_code}" != "200" ]; then
+            echo "::error::Keep-alive confirm ping failed (http=${confirm_code})"
+            exit 1
+          fi
+
+          echo "Keep-alive OK — service is live."

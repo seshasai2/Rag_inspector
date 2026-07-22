@@ -1,6 +1,6 @@
 # Render keep-alive
 
-Keep the **Render Free** RAGInspector API from spinning down during demos and development by pinging a lightweight health endpoint every 10 minutes.
+Keep the **Render Free** RAGInspector API from spinning down during demos and development by pinging a lightweight health endpoint every 5 minutes.
 
 ## Purpose
 
@@ -9,15 +9,16 @@ Render Free web services sleep after ~15 minutes of inactivity. The first reques
 This keep-alive system:
 
 1. Uses the existing unauthenticated `GET /health` probe (no DB, Redis, auth, or ML).
-2. Runs a GitHub Actions workflow on a 10-minute cron (+ manual dispatch).
-3. Optionally pairs with an external uptime monitor for redundancy.
+2. Runs a GitHub Actions workflow on a 5-minute cron (+ manual dispatch).
+3. Retries through cold-start 502s, then confirms with a second ping.
+4. Optionally pairs with an external uptime monitor for redundancy.
 
 ## Architecture
 
 ```text
-GitHub Actions (cron */10)
+GitHub Actions (cron */5)
         │
-        │  GET ${BACKEND_URL}/health
+        │  GET ${BACKEND_URL}/health  (retry through 502s)
         │  (secret — never hardcoded)
         ▼
 Render Free web service (raginspector-api)
@@ -37,11 +38,11 @@ Related probes:
 ## How it works
 
 1. Workflow: [`.github/workflows/render-keepalive.yml`](../.github/workflows/render-keepalive.yml)
-2. Trigger: `schedule` every 10 minutes (`*/10 * * * *`) and `workflow_dispatch`
+2. Trigger: `schedule` every 5 minutes (`*/5 * * * *`) and `workflow_dispatch`
 3. Reads repository secret `BACKEND_URL` (base URL only, no path, no credentials)
-4. Runs `curl` with retries against `${BACKEND_URL}/health`
-5. Logs UTC time, HTTP status, latency, and response body
-6. Fails the job if the request fails (so you notice outages)
+4. Retries `GET ${BACKEND_URL}/health` through cold-start 502s (up to ~90s each)
+5. Confirms with a second ping so a flaky wake does not look “green”
+6. Fails the job if wake + confirm do not both return HTTP 200
 
 Scheduled workflows only run on the repository **default branch** after the workflow file is merged.
 
@@ -97,8 +98,8 @@ Push/merge `.github/workflows/render-keepalive.yml` to `main` (or your default b
 ```bash
 # From any machine with network access to Render
 export BACKEND_URL="https://YOUR_SERVICE.onrender.com"   # no trailing slash
-curl --fail --silent --show-error \
-  --retry 3 --retry-delay 5 --max-time 30 \
+curl --silent --show-error \
+  --max-time 90 \
   --write-out "\nHTTP:%{http_code} time_total:%{time_total}s\n" \
   "${BACKEND_URL}/health"
 ```
@@ -132,9 +133,9 @@ Dashboard → your web service → **Logs**: periodic `GET /health` (or `/live`)
 |---------|--------------|-----|
 | Workflow fails: secret not set | Missing `BACKEND_URL` | Add the Actions secret |
 | curl exit 22 / HTTP non-200 | Service down or wrong URL | Check Render dashboard; fix secret |
-| curl timeout / connection refused | Cold start longer than 30s, or service deleted | Retry; raise `--max-time` only if needed; confirm deploy |
-| Workflow never runs on schedule | File not on default branch; Actions disabled | Merge to `main`; enable Actions |
-| Still spins down | Cron gap + Render idle policy | Add a second monitor (Better Stack / UptimeRobot) staggered 5 minutes off |
+| curl timeout / connection refused | Cold start longer than 90s, or service deleted | Check Render logs/deploy; confirm `BACKEND_URL` |
+| Workflow never runs on schedule | File not on default branch; Actions disabled; GitHub cron drift | Merge to `main`; enable Actions; GitHub may delay cron several minutes |
+| Still spins down | Cron gap + Render idle policy | Add Better Stack / UptimeRobot / cron-job.org staggered off GitHub |
 | 403 / TrustedHost | `ALLOWED_HOSTS` missing your hostname | Add hostname in Render env vars |
 
 ## Optional monitoring (redundancy)
@@ -173,11 +174,11 @@ Recommended interval: **10–14 minutes**.
 2. **Create cronjob**
 3. Title: `raginspector-keepalive`
 4. URL: `https://YOUR_RENDER_URL/health`
-5. Schedule: every **12 minutes** (e.g. cron `*/12 * * * *`) so it does not align exactly with GitHub’s `*/10`
+5. Schedule: every **7 minutes** (e.g. cron `*/7 * * * *`) so it does not align exactly with GitHub’s `*/5`
 6. Request method: `GET`
 7. Enable; check execution history for HTTP 200
 
-**Staggering tip:** GitHub at `:00,:10,:20,…` + Cron-job.org at `:05,:17,:29,…` (or `*/12`) reduces simultaneous cold-start races and covers a missed Actions run.
+**Staggering tip:** GitHub at `:00,:05,:10,…` + Cron-job.org at `:02,:09,:16,…` (or `*/7`) covers a missed Actions run.
 
 ## Security
 
