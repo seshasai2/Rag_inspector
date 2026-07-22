@@ -38,10 +38,12 @@ services:
       # Interview/portfolio: seed pre-analyzed demo data (no Celery/Redis needed)
       - key: ALLOW_DEMO_SEED
         value: "true"
+      # Idempotent seed only — FORCE=1 on every boot purged/reseeded and delayed
+      # uvicorn past Render Free health windows → restart/502 loops.
       - key: SEED_DEMO_ON_START
         value: "1"
       - key: SEED_DEMO_FORCE
-        value: "1"
+        value: "0"
       - key: SECRET_KEY
         generateValue: true
       - key: OPS_SHARED_TOKEN

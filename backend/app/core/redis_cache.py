@@ -47,14 +47,26 @@ def reset_redis_cache_for_tests() -> None:
         _async_client_failed = False
 
 
+def _redis_disabled() -> bool:
+    """True when Redis is unset / local-only (seed UI demos without a broker)."""
+    url = (settings.REDIS_URL or "").strip().lower()
+    if not url:
+        return True
+    if settings.ENVIRONMENT == "development" and (
+        "localhost" in url or "127.0.0.1" in url
+    ):
+        return True
+    return False
+
+
 def _get_client() -> Optional[Redis]:
     global _client, _client_failed
-    if _client_failed:
+    if _client_failed or _redis_disabled():
         return None
     if _client is not None:
         return _client
     with _client_lock:
-        if _client_failed:
+        if _client_failed or _redis_disabled():
             return None
         if _client is not None:
             return _client
@@ -75,12 +87,12 @@ def _get_client() -> Optional[Redis]:
 
 def _get_async_client() -> Optional[AsyncRedis]:
     global _async_client, _async_client_failed
-    if _async_client_failed:
+    if _async_client_failed or _redis_disabled():
         return None
     if _async_client is not None:
         return _async_client
     with _async_client_lock:
-        if _async_client_failed:
+        if _async_client_failed or _redis_disabled():
             return None
         if _async_client is not None:
             return _async_client

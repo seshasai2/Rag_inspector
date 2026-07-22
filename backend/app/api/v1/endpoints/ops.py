@@ -62,23 +62,24 @@ async def readiness(db: AsyncSession = Depends(get_db)):
         detail = str(exc).replace("\n", " ")[:160]
         checks["database"] = f"error: {exc.__class__.__name__}: {detail}"
 
-    try:
-        redis_client = Redis.from_url(
-            settings.REDIS_URL,
-            socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
-            socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
-        )
+    if redis_optional:
+        # Free/portfolio demos: do not dial localhost Redis on every readiness probe.
+        checks["redis"] = "skipped"
+        soft["redis"] = "optional: not configured (seed UI demo)"
+    else:
         try:
-            redis_client.ping()
-            checks["redis"] = "ok"
-        finally:
-            redis_client.close()
-    except Exception as exc:
-        detail = str(exc).replace("\n", " ")[:120]
-        if redis_optional:
-            checks["redis"] = "skipped"
-            soft["redis"] = f"optional: {exc.__class__.__name__}: {detail}"
-        else:
+            redis_client = Redis.from_url(
+                settings.REDIS_URL,
+                socket_connect_timeout=settings.REDIS_SOCKET_CONNECT_TIMEOUT,
+                socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+            )
+            try:
+                redis_client.ping()
+                checks["redis"] = "ok"
+            finally:
+                redis_client.close()
+        except Exception as exc:
+            detail = str(exc).replace("\n", " ")[:120]
             checks["redis"] = f"error: {exc.__class__.__name__}: {detail}"
 
     # Soft: alembic version present (schema applied)
