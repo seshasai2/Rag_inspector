@@ -88,28 +88,31 @@ async def get_timeseries(
             filters.append(QueryTrace.pipeline_id == pipeline_id)
         filters.append(QueryTrace.traced_at >= datetime.now(timezone.utc) - timedelta(days=days))
 
+        # Aggregate in Python — Postgres date_trunc GROUP BY was hanging the sole
+        # uvicorn worker on Render Free (~50s → 502), taking down /health with it.
         result = await db.execute(
-            select(
-                day_trunc(QueryTrace.traced_at).label("day"),
-                func.avg(metric_col).label("avg_val"),
-                func.count(QueryTrace.id).label("count"),
-            )
-            .where(and_(*filters))
-            .group_by(day_trunc(QueryTrace.traced_at))
-            .order_by(day_trunc(QueryTrace.traced_at))
+            select(QueryTrace.traced_at, metric_col).where(and_(*filters))
         )
+        buckets: dict[str, list[float]] = {}
+        for traced_at, val in result.all():
+            if traced_at is None:
+                continue
+            day = (
+                traced_at
+                if isinstance(traced_at, str)
+                else traced_at.strftime("%Y-%m-%d")
+            )
+            if isinstance(day, str) and len(day) >= 10:
+                day = day[:10]
+            buckets.setdefault(day, []).append(float(val or 0))
 
         data = [
             {
-                "date": (
-                    (row[0] if isinstance(row[0], str) else row[0].strftime("%Y-%m-%d"))
-                    if row[0]
-                    else None
-                ),
-                "value": round(float(row[1] or 0), 3),
-                "count": row[2],
+                "date": day,
+                "value": round(sum(values) / len(values), 3),
+                "count": len(values),
             }
-            for row in result.all()
+            for day, values in sorted(buckets.items())
         ]
         return {"metric": metric, "data": data}
 
@@ -208,31 +211,41 @@ async def get_latency_breakdown(
         if pipeline_id:
             filters.append(QueryTrace.pipeline_id == pipeline_id)
 
+        # Same as timeseries: avoid Postgres date_trunc GROUP BY on Render Free.
         result = await db.execute(
             select(
-                day_trunc(QueryTrace.traced_at).label("day"),
-                func.avg(QueryTrace.embed_latency_ms).label("embed"),
-                func.avg(QueryTrace.retrieve_latency_ms).label("retrieve"),
-                func.avg(QueryTrace.generate_latency_ms).label("generate"),
-            )
-            .where(and_(*filters))
-            .group_by(day_trunc(QueryTrace.traced_at))
-            .order_by(day_trunc(QueryTrace.traced_at))
+                QueryTrace.traced_at,
+                QueryTrace.embed_latency_ms,
+                QueryTrace.retrieve_latency_ms,
+                QueryTrace.generate_latency_ms,
+            ).where(and_(*filters))
         )
+        buckets: dict[str, list[tuple[float, float, float]]] = {}
+        for traced_at, embed, retrieve, generate in result.all():
+            if traced_at is None:
+                continue
+            day = (
+                traced_at
+                if isinstance(traced_at, str)
+                else traced_at.strftime("%Y-%m-%d")
+            )
+            if isinstance(day, str) and len(day) >= 10:
+                day = day[:10]
+            buckets.setdefault(day, []).append(
+                (float(embed or 0), float(retrieve or 0), float(generate or 0))
+            )
 
-        data = [
-            {
-                "date": (
-                    (row[0] if isinstance(row[0], str) else row[0].strftime("%Y-%m-%d"))
-                    if row[0]
-                    else None
-                ),
-                "embed_ms": round(float(row[1] or 0), 1),
-                "retrieve_ms": round(float(row[2] or 0), 1),
-                "generate_ms": round(float(row[3] or 0), 1),
-            }
-            for row in result.all()
-        ]
+        data = []
+        for day, rows in sorted(buckets.items()):
+            n = len(rows)
+            data.append(
+                {
+                    "date": day,
+                    "embed_ms": round(sum(r[0] for r in rows) / n, 1),
+                    "retrieve_ms": round(sum(r[1] for r in rows) / n, 1),
+                    "generate_ms": round(sum(r[2] for r in rows) / n, 1),
+                }
+            )
         return {"data": data}
 
     payload, cache_status = await get_or_set_json(key, _compute)

@@ -7,7 +7,11 @@ from typing import Any, Awaitable, Callable, Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.redis_cache import cache_get_json_async, cache_set_json_async
+from app.core.redis_cache import (
+    cache_get_json_async,
+    cache_set_json_async,
+    redis_cache_available,
+)
 from app.models.models import User
 from app.schemas.schemas import DashboardMetrics
 from app.services.dashboard_metrics import build_dashboard_metrics
@@ -21,6 +25,7 @@ def dashboard_cache_enabled() -> bool:
     return (
         bool(settings.DASHBOARD_METRICS_CACHE_ENABLED)
         and int(settings.DASHBOARD_METRICS_CACHE_TTL_SECONDS) > 0
+        and redis_cache_available()
     )
 
 

@@ -59,6 +59,11 @@ def _redis_disabled() -> bool:
     return False
 
 
+def redis_cache_available() -> bool:
+    """False when cache should bypass Redis (no broker / seed-only deploy)."""
+    return not _redis_disabled()
+
+
 def _get_client() -> Optional[Redis]:
     global _client, _client_failed
     if _client_failed or _redis_disabled():
