@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -35,6 +35,12 @@ export default function LoginPage() {
   const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
+
+  // Wake Render Free API before login so the first auth call is less likely to 502.
+  useEffect(() => {
+    const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+    void fetch(`${base}/health`, { method: 'GET', cache: 'no-store' }).catch(() => undefined)
+  }, [])
 
   const goNext = () => {
     const next = new URLSearchParams(window.location.search).get('next')

@@ -6,8 +6,9 @@ name: Render keep-alive
 
 on:
   schedule:
-    # Every 10 minutes — Free tier spins down after ~15 min idle.
-    - cron: "*/10 * * * *"
+    # Every 5 minutes — Free tier can 502 during cold start; keep-alive must be denser
+    # than the ~15 min idle spin-down. GitHub cron can also drift, so 5m is safer.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
