@@ -1,0 +1,83 @@
+# Staggered backup keep-alive — offsets GitHub's primary */5 cron so a missed
+# or delayed Actions run does not let Render Free spin down.
+# Uses the same BACKEND_URL secret as render-keepalive.yml.
+
+name: Render keep-alive (staggered)
+
+on:
+  schedule:
+    # :02,:07,:12,… — 2 minutes after the primary */5 cadence
+    - cron: "2-59/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-keepalive-staggered
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Staggered ping /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require BACKEND_URL secret
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          if [ -z "${BACKEND_URL}" ]; then
+            echo "::error::Repository secret BACKEND_URL is not set."
+            exit 1
+          fi
+          echo "BACKEND_URL=${BACKEND_URL%/}" >> "$GITHUB_ENV"
+
+      - name: Wake and confirm GET /health
+        run: |
+          set -euo pipefail
+          URL="${BACKEND_URL}/health"
+          echo "UTC time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Target:   ${URL}"
+
+          attempt=0
+          max_attempts=8
+          http_code="000"
+          body_file="$(mktemp)"
+
+          while [ "${attempt}" -lt "${max_attempts}" ]; do
+            attempt=$((attempt + 1))
+            set +e
+            http_code=$(curl --silent --show-error \
+              --max-time 90 \
+              --write-out "%{http_code}" \
+              --output "${body_file}" \
+              "${URL}")
+            curl_exit=$?
+            set -e
+            echo "Attempt ${attempt}/${max_attempts}: http=${http_code} curl_exit=${curl_exit}"
+            if [ "${curl_exit}" -eq 0 ] && [ "${http_code}" = "200" ]; then
+              cat "${body_file}" || true
+              echo
+              break
+            fi
+            sleep 8
+          done
+
+          if [ "${http_code}" != "200" ]; then
+            echo "::error::Staggered keep-alive wake failed (http=${http_code})"
+            exit 1
+          fi
+
+          sleep 2
+          confirm_code=$(curl --silent --show-error \
+            --max-time 30 \
+            --write-out "%{http_code}" \
+            --output /dev/null \
+            "${URL}" || true)
+          echo "Confirm ping: http=${confirm_code}"
+          if [ "${confirm_code}" != "200" ]; then
+            echo "::error::Staggered confirm ping failed (http=${confirm_code})"
+            exit 1
+          fi
+          echo "Staggered keep-alive OK."

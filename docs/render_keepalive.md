@@ -138,47 +138,56 @@ Dashboard → your web service → **Logs**: periodic `GET /health` (or `/live`)
 | Still spins down | Cron gap + Render idle policy | Add Better Stack / UptimeRobot / cron-job.org staggered off GitHub |
 | 403 / TrustedHost | `ALLOWED_HOSTS` missing your hostname | Add hostname in Render env vars |
 
-## Optional monitoring (redundancy)
+## Redundant keep-alive (added)
 
-Use an external checker staggered **~5 minutes** off the GitHub cron so Free-tier wake traffic is redundant without stacking identical clocks. Target:
+Three layers ping `/health` so a missed GitHub cron does not let Render Free sleep:
 
-`https://YOUR_RENDER_URL/health`
+| Layer | Schedule | Workflow / tool |
+|-------|----------|-----------------|
+| Primary GitHub | every 5 min (`*/5`) | `.github/workflows/render-keepalive.yml` |
+| Staggered GitHub | `:02,:07,:12,…` | `.github/workflows/render-keepalive-staggered.yml` |
+| UptimeRobot | every 5 min (free) | agentic setup → confirm email |
+| cron-job.org | every 7 min | `scripts/keepalive/setup_cron_job_org.py` |
 
-Recommended interval: **10–14 minutes**.
+Target URL:
 
-### Better Stack (formerly Better Uptime)
+`https://raginspector-api.onrender.com/health`
 
-1. Sign up at [betterstack.com](https://betterstack.com/) (free tier available).
-2. **Uptime** → **Create monitor**
-3. Monitor type: **HTTP(s)**
-4. URL: `https://YOUR_RENDER_URL/health`
-5. Method: `GET`
-6. Expected status: `200`
-7. Check frequency: **every 10 or 12 minutes** (or closest plan option)
-8. Optional: assert response contains `"status":"healthy"` or `"service":"raginspector"`
-9. Save; confirm first check succeeds after a cold start (may take up to a minute)
+### UptimeRobot (agentic — no API key)
 
-### UptimeRobot
+Already submitted for the production `/health` URL. **You must click Activate in the email** (inbox used for the request).
 
-1. Sign up at [uptimerobot.com](https://uptimerobot.com/)
-2. **Add New Monitor**
-3. Monitor Type: **HTTP(s)**
-4. URL: `https://YOUR_RENDER_URL/health`
-5. Monitoring Interval: **10 minutes** (free plans often allow 5 min — prefer 10–14 if available)
-6. Alert Contacts: optional email
-7. Advanced (optional): keyword monitor for `healthy` or `raginspector`
+Re-run locally:
 
-### Cron-job.org
+```bash
+python scripts/keepalive/setup_uptimerobot_agentic.py \
+  --email "you@example.com" \
+  --url "https://raginspector-api.onrender.com/health"
+```
 
-1. Sign up at [cron-job.org](https://cron-job.org/)
-2. **Create cronjob**
-3. Title: `raginspector-keepalive`
-4. URL: `https://YOUR_RENDER_URL/health`
-5. Schedule: every **7 minutes** (e.g. cron `*/7 * * * *`) so it does not align exactly with GitHub’s `*/5`
-6. Request method: `GET`
-7. Enable; check execution history for HTTP 200
+Or open:
 
-**Staggering tip:** GitHub at `:00,:05,:10,…` + Cron-job.org at `:02,:09,:16,…` (or `*/7`) covers a missed Actions run.
+`https://uptimerobot.com/quick-start?url=https://raginspector-api.onrender.com/health&email=you@example.com`
+
+Or Actions → **Provision external keep-alive** → set `alert_email` → Run.
+
+### cron-job.org
+
+1. Create a free account at [cron-job.org](https://cron-job.org/)
+2. **Settings** → create an API key
+3. Add GitHub Actions secret `CRON_JOB_ORG_API_KEY`
+4. Run locally or via Actions:
+
+```bash
+export CRON_JOB_ORG_API_KEY="…"
+python scripts/keepalive/setup_cron_job_org.py \
+  --url "https://raginspector-api.onrender.com/health" \
+  --every-minutes 7
+```
+
+Or Actions → **Provision external keep-alive** (uses the secret automatically).
+
+Optional secret `KEEPALIVE_ALERT_EMAIL` = default inbox for the UptimeRobot provision workflow.
 
 ## Security
 

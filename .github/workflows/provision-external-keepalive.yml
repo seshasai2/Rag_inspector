@@ -1,0 +1,86 @@
+# One-shot / on-demand provisioning of external keep-alive monitors.
+# - UptimeRobot: agentic flow (no API key) — owner must confirm email
+# - cron-job.org: requires secret CRON_JOB_ORG_API_KEY
+#
+# Optional secrets:
+#   KEEPALIVE_ALERT_EMAIL  — inbox for UptimeRobot activation/alerts
+#   CRON_JOB_ORG_API_KEY   — Bearer token from cron-job.org Settings
+#   BACKEND_URL            — defaults used if unset for URL construction
+
+name: Provision external keep-alive
+
+on:
+  workflow_dispatch:
+    inputs:
+      alert_email:
+        description: "Email for UptimeRobot activation + alerts (overrides KEEPALIVE_ALERT_EMAIL secret)"
+        required: false
+        type: string
+      skip_uptimerobot:
+        description: "Skip UptimeRobot agentic setup"
+        required: false
+        type: boolean
+        default: false
+      skip_cron_job_org:
+        description: "Skip cron-job.org job create/update"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    name: Provision monitors
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve health URL + email
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          KEEPALIVE_ALERT_EMAIL: ${{ secrets.KEEPALIVE_ALERT_EMAIL }}
+          INPUT_EMAIL: ${{ inputs.alert_email }}
+        run: |
+          set -euo pipefail
+          BASE="${BACKEND_URL:-https://raginspector-api.onrender.com}"
+          BASE="${BASE%/}"
+          echo "HEALTH_URL=${BASE}/health" >> "$GITHUB_ENV"
+          EMAIL="${INPUT_EMAIL:-${KEEPALIVE_ALERT_EMAIL:-}}"
+          echo "ALERT_EMAIL=${EMAIL}" >> "$GITHUB_ENV"
+          echo "Health URL: ${BASE}/health"
+          if [ -n "${EMAIL}" ]; then
+            echo "Alert email: ${EMAIL}"
+          else
+            echo "Alert email: (not set — UptimeRobot step will be skipped unless provided)"
+          fi
+
+      - name: Setup UptimeRobot (agentic)
+        if: ${{ inputs.skip_uptimerobot == false }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ALERT_EMAIL}" ]; then
+            echo "::warning::No alert email (input or KEEPALIVE_ALERT_EMAIL). Skipping UptimeRobot."
+            exit 0
+          fi
+          python scripts/keepalive/setup_uptimerobot_agentic.py \
+            --email "${ALERT_EMAIL}" \
+            --url "${HEALTH_URL}"
+
+      - name: Setup cron-job.org
+        if: ${{ inputs.skip_cron_job_org == false }}
+        env:
+          CRON_JOB_ORG_API_KEY: ${{ secrets.CRON_JOB_ORG_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_JOB_ORG_API_KEY:-}" ]; then
+            echo "::warning::CRON_JOB_ORG_API_KEY secret not set. Skipping cron-job.org."
+            echo "Create a free key at https://console.cron-job.org/settings"
+            exit 0
+          fi
+          python scripts/keepalive/setup_cron_job_org.py \
+            --url "${HEALTH_URL}" \
+            --every-minutes 7
