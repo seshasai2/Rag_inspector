@@ -18,12 +18,11 @@ if [ "${RUN_MIGRATIONS:-0}" = "1" ]; then
 fi
 
 if [ "${SEED_DEMO_ON_START:-0}" = "1" ]; then
-  echo "SEED_DEMO_ON_START=1 — seeding demo dataset" >&2
-  FORCE_FLAG=""
-  if [ "${SEED_DEMO_FORCE:-0}" = "1" ]; then
-    FORCE_FLAG="--force"
-  fi
-  python scripts/seed_demo.py ${FORCE_FLAG} || echo "demo seed failed (non-fatal)" >&2
+  # Idempotent only. Never --force on boot: wiping/reseeding before uvicorn binds
+  # delays health checks on Render Free and causes 502 restart loops.
+  # Intentional refresh: POST /api/v1/ops/seed-demo?force=true
+  echo "SEED_DEMO_ON_START=1 — seeding demo dataset (idempotent)" >&2
+  python scripts/seed_demo.py || echo "demo seed failed (non-fatal)" >&2
 fi
 
 exec "$@"
